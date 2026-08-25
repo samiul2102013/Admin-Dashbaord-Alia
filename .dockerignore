@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+.env.local
+.env.production
+.vercel
+.next
+node_modules
+npm-debug.log*
+README.md
+.vscode
+tsconfig.tsbuildinfo
+next-env.d.ts

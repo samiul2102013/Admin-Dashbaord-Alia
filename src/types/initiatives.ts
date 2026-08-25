@@ -1,0 +1,29 @@
+export interface Initiative {
+  id: string;
+  title: string;
+  category: string;
+  emirates: string;
+  startDate: string;
+  endDate: string;
+  status: 'Published' | 'Draft' | 'Pending';
+  isFeatured?: boolean;
+  slug?: string;
+  titleAr?: string;
+  subtitle?: string;
+  subtitleAr?: string;
+  description?: string;
+  purpose?: string;
+  objectives?: string[];
+  basicInformation?: string[];
+  supportOffered?: Record<string, boolean>;
+  benefits?: string[];
+  coverImage?: string;
+  badge?: string;
+  contact?: string[];
+  officialWebsiteUrl?: string;
+  shareUrl?: string;
+  showAbout?: boolean;
+  showSupportOffered?: boolean;
+  showBenefits?: boolean;
+  showApplicationForm?: boolean;
+}
