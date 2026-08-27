@@ -5,20 +5,20 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: https://aliabackend.kodevio.com/api
+        NEXT_PUBLIC_API_URL: https://api.wileef.com/api
     container_name: alia_admin
     restart: unless-stopped
     networks:
       - dokploy-network
     labels:
       - traefik.enable=true
-      - traefik.http.routers.alia-admin.rule=Host(`aiaadmin.kodevio.com`)
+      - traefik.http.routers.alia-admin.rule=Host(`admin.wileef.com`)
       - traefik.http.routers.alia-admin.entrypoints=websecure
       - traefik.http.routers.alia-admin.tls.certResolver=letsencrypt
       - traefik.docker.network=dokploy-network
       - traefik.http.services.alia-admin.loadbalancer.server.port=3000
       # HTTP -> HTTPS redirect
-      - traefik.http.routers.alia-admin-http.rule=Host(`aiaadmin.kodevio.com`)
+      - traefik.http.routers.alia-admin-http.rule=Host(`admin.wileef.com`)
       - traefik.http.routers.alia-admin-http.entrypoints=web
       - traefik.http.routers.alia-admin-http.middlewares=alia-admin-redirect
       - traefik.http.middlewares.alia-admin-redirect.redirectscheme.scheme=https
