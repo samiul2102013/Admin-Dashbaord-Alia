@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import apiClient from '@/lib/api-client';
 import type { HomepageContent } from '@/types/homepage';
 
 export async function getHomepageContent(): Promise<HomepageContent | null> {

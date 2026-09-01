@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AuthUser } from '@/types/api';
-import apiClient from '@/lib/api-client';
+import baseClient from '@/lib/base-client';
 
 interface AuthState {
   user: AuthUser | null;
@@ -36,7 +36,7 @@ export const useAuthStore = create<AuthState>()(
         }
         set({ isBootstrapping: true });
         try {
-          const { data } = await apiClient.post('/admin/auth/refresh/', {
+          const { data } = await baseClient.post('/admin/auth/refresh/', {
             refresh: refreshToken,
           });
           set({ accessToken: data.access, isBootstrapping: false });

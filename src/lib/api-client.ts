@@ -1,27 +1,39 @@
 import axios from 'axios';
-import { useAuthStore } from '@/store/authStore';
+import baseClient from '@/lib/base-client';
 
-const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
-  timeout: 15000,
-});
+let _getToken: (() => string | null) | null = null;
+let _getRefreshToken: (() => string | null) | null = null;
+let _onRefreshed: ((token: string) => void) | null = null;
+let _onLogout: (() => void) | null = null;
 
-apiClient.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().accessToken;
+export function setAuthCallbacks(opts: {
+  getToken: () => string | null;
+  getRefreshToken: () => string | null;
+  onRefreshed: (token: string) => void;
+  onLogout: () => void;
+}) {
+  _getToken = opts.getToken;
+  _getRefreshToken = opts.getRefreshToken;
+  _onRefreshed = opts.onRefreshed;
+  _onLogout = opts.onLogout;
+}
+
+baseClient.interceptors.request.use((config) => {
+  const token = _getToken?.();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-apiClient.interceptors.response.use(
+baseClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const refreshToken = useAuthStore.getState().refreshToken;
+        const refreshToken = _getRefreshToken?.();
         if (!refreshToken) {
           throw new Error('No refresh token');
         }
@@ -29,12 +41,14 @@ apiClient.interceptors.response.use(
           `${process.env.NEXT_PUBLIC_API_URL}/admin/auth/refresh/`,
           { refresh: refreshToken },
         );
-        useAuthStore.getState().setAccessToken(data.access);
+        _onRefreshed?.(data.access);
         originalRequest.headers.Authorization = `Bearer ${data.access}`;
-        return apiClient(originalRequest);
+        return baseClient(originalRequest);
       } catch (refreshError) {
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
+        _onLogout?.();
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       }
     }
@@ -52,4 +66,4 @@ export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'An unexpected error occurred';
 }
 
-export default apiClient;
+export default baseClient;
