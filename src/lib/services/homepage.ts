@@ -1,6 +1,11 @@
 import apiClient from '@/lib/api-client';
 import type { HomepageContent } from '@/types/homepage';
 
+export const homepageKeys = {
+  all: ['homepage'] as const,
+  content: () => [...homepageKeys.all, 'content'] as const,
+};
+
 export async function getHomepageContent(): Promise<HomepageContent | null> {
   try {
     const { data } = await apiClient.get<HomepageContent>('/admin/homepage');
