@@ -14,7 +14,6 @@ import {
   MapPin,
   Grid3X3,
   Settings,
-  PenSquare,
   Home,
   Info,
   Phone,
@@ -42,7 +41,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'About Content', icon: Info, href: '/about' },
   { label: 'Contact Content', icon: Phone, href: '/contact' },
   { label: 'Media Library', icon: Image, href: '/media' },
-  { label: 'Website Content', icon: PenSquare, href: '/website-content' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ];
 

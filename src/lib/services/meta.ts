@@ -29,6 +29,6 @@ export async function getMeta(): Promise<MetaPayload> {
 export async function uploadFile(file: File): Promise<UploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
-  const { data } = await apiClient.post<UploadResponse>('/uploads', formData);
+  const { data } = await apiClient.post<UploadResponse>('/uploads', formData, { timeout: 0 });
   return data;
 }
