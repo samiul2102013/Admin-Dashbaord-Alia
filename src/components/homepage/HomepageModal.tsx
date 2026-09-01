@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Button from '@/components/shared/Button';
 import { getErrorMessage } from '@/lib/api-client';
 import { saveHomepageContent, homepageKeys } from '@/lib/services/homepage';
+import { useUpload } from '@/hooks/useMeta';
 import type { HomepageContent, FloatingCard, StatItem } from '@/types/homepage';
 
 interface HomepageModalProps {
@@ -84,6 +85,8 @@ export default function HomepageModal({ isOpen, onClose, data }: HomepageModalPr
     onError: (err) => setError(getErrorMessage(err)),
   });
 
+  const upload = useUpload();
+
   const setField = (patch: Partial<HomepageContent>) => {
     setFormData((prev) => ({ ...prev, ...patch }));
   };
@@ -158,8 +161,26 @@ export default function HomepageModal({ isOpen, onClose, data }: HomepageModalPr
           <Input label="Secondary CTA Label (EN)" value={formData.heroSecondaryCtaLabel} onChange={(e) => setField({ heroSecondaryCtaLabel: e.target.value })} />
           <Input label="Secondary CTA Label (AR)" value={formData.heroSecondaryCtaLabelAr} onChange={(e) => setField({ heroSecondaryCtaLabelAr: e.target.value })} />
           <Input label="Secondary CTA Link" value={formData.heroSecondaryCtaLink} onChange={(e) => setField({ heroSecondaryCtaLink: e.target.value })} />
-          <Input label="Hero Image URL" value={formData.heroImage} onChange={(e) => setField({ heroImage: e.target.value })} />
           <Input label="Hero Image Alt" value={formData.heroImageAlt} onChange={(e) => setField({ heroImageAlt: e.target.value })} />
+
+          <div className="col-span-full">
+            <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)] mb-2 block">
+              Hero Image
+            </label>
+            <FileUpload
+              value={formData.heroImage}
+              label="Upload Hero Image"
+              isUploading={upload.isPending}
+              onUpload={async (file) => {
+                try {
+                  const res = await upload.mutateAsync(file);
+                  setField({ heroImage: res.url });
+                } catch (uploadError) {
+                  setError(`Image upload failed: ${getErrorMessage(uploadError)}`);
+                }
+              }}
+            />
+          </div>
 
           <div className="col-span-full mt-2">
             <h5 className="text-xs font-bold text-text-secondary uppercase mb-3 font-[family-name:var(--font-manrope)]">Floating Cards</h5>
@@ -302,6 +323,52 @@ function SectionBlock({ title, isOpen, onToggle, children }: { title: string; is
         <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           {children}
         </div>
+      )}
+    </div>
+  );
+}
+
+interface FileUploadProps {
+  value: string;
+  label: string;
+  isUploading: boolean;
+  onUpload: (file: File) => void;
+}
+
+function FileUpload({ value, label, isUploading, onUpload }: FileUploadProps) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onUpload(file);
+    e.target.value = '';
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {value && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={value}
+          alt={label}
+          className="h-28 w-full rounded-[10px] object-cover bg-secondary/20"
+        />
+      )}
+      <label className="w-full h-32 rounded-[10px] border-2 border-dashed border-secondary/40 bg-surface/50 flex items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
+        <input type="file" className="hidden" accept="image/*" onChange={handleChange} />
+        <span className="flex items-center gap-2 text-sm text-text-secondary font-[family-name:var(--font-poppins)]">
+          {isUploading ? (
+            <>
+              <Loader2 size={16} className="animate-spin text-primary" />
+              Uploading...
+            </>
+          ) : (
+            `+ ${label}`
+          )}
+        </span>
+      </label>
+      {value && (
+        <p className="text-xs text-primary break-all font-[family-name:var(--font-poppins)]">
+          {value.split('/').pop() || value}
+        </p>
       )}
     </div>
   );
