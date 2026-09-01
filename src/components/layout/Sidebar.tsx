@@ -15,6 +15,7 @@ import {
   Grid3X3,
   Settings,
   PenSquare,
+  Home,
   LogOut,
   type LucideIcon,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Booked Consultations', icon: CalendarCheck, href: '/bookings' },
   { label: 'Emirates', icon: MapPin, href: '/emirates' },
   { label: 'Initiative Category', icon: Grid3X3, href: '/categories' },
+  { label: 'Homepage Content', icon: Home, href: '/homepage' },
   { label: 'Website Content', icon: PenSquare, href: '/website-content' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ];
