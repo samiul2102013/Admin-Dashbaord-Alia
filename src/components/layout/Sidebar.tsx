@@ -16,6 +16,9 @@ import {
   Settings,
   PenSquare,
   Home,
+  Info,
+  Phone,
+  Image,
   LogOut,
   type LucideIcon,
 } from 'lucide-react';
@@ -36,6 +39,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Emirates', icon: MapPin, href: '/emirates' },
   { label: 'Initiative Category', icon: Grid3X3, href: '/categories' },
   { label: 'Homepage Content', icon: Home, href: '/homepage' },
+  { label: 'About Content', icon: Info, href: '/about' },
+  { label: 'Contact Content', icon: Phone, href: '/contact' },
+  { label: 'Media Library', icon: Image, href: '/media' },
   { label: 'Website Content', icon: PenSquare, href: '/website-content' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ];
