@@ -2,11 +2,29 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Pencil, Loader2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
+import DataTable from '@/components/shared/DataTable';
 import Button from '@/components/shared/Button';
 import { getErrorMessage } from '@/lib/api-client';
 import { getHomepageContent, homepageKeys } from '@/lib/services/homepage';
 import HomepageModal from './HomepageModal';
+import type { Column } from '@/components/shared/DataTable';
+import type { HomepageContent } from '@/types/homepage';
+
+const columns: Column<HomepageContent>[] = [
+  { header: 'Hero Title', accessor: 'heroTitle', className: 'font-semibold text-navy max-w-[280px] truncate' },
+  { header: 'Hero Subtitle', accessor: 'heroSubtitle', className: 'max-w-[240px] truncate' },
+  { header: 'News Title', accessor: 'newsTitle', className: 'max-w-[200px] truncate' },
+  { header: 'CTA Title', accessor: 'ctaTitle', className: 'max-w-[200px] truncate' },
+  {
+    header: 'Published',
+    accessor: (row) => (
+      <span className={`px-2 py-1 rounded-full text-[11px] font-semibold ${row.published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+        {row.published ? 'Published' : 'Draft'}
+      </span>
+    ),
+  },
+];
 
 export default function HomepageContentPanel() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -16,61 +34,47 @@ export default function HomepageContentPanel() {
     queryFn: getHomepageContent,
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">
-        {getErrorMessage(error)}
-      </p>
-    );
-  }
+  const tableData = data ? [data] : [];
 
   return (
-    <>
-      <div className="flex flex-col gap-5 flex-1 min-h-0">
-        <div className="flex items-center justify-between">
-          <p className="text-text-secondary text-sm font-[family-name:var(--font-poppins)]">
-            {data
-              ? 'Homepage content is synced with the database. Click edit to make changes.'
-              : 'No homepage content found. Click the button below to create the default homepage content.'}
-          </p>
-          <Button onClick={() => setModalOpen(true)}>
-            <Pencil size={16} />
-            {data ? 'Edit Homepage Content' : 'Create Homepage Content'}
-          </Button>
-        </div>
+    <div className="flex flex-col gap-5 flex-1 min-h-0">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <p className="text-text-secondary text-sm font-[family-name:var(--font-poppins)]">
+          {data
+            ? 'Edit the homepage content that appears on the website.'
+            : 'No homepage content yet. Create it to get started.'}
+        </p>
+        <Button onClick={() => setModalOpen(true)}>
+          {data ? (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit Content
+            </>
+          ) : (
+            <>
+              <Plus size={18} />
+              Create Homepage Content
+            </>
+          )}
+        </Button>
+      </div>
 
-        {data && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <SummaryCard title="Hero Title" value={data.heroTitle} />
-            <SummaryCard title="Stats" value={`${data.stats?.length ?? 0} items`} />
-            <SummaryCard title="News Title" value={data.newsTitle} />
-            <SummaryCard title="Initiatives Title" value={data.initiativesTitle} />
-            <SummaryCard title="Consultations Title" value={data.consultationsTitle} />
-            <SummaryCard title="Emirates Title" value={data.emiratesTitle} />
-            <SummaryCard title="CTA Title" value={data.ctaTitle} />
-            <SummaryCard title="Status" value={data.published ? 'Published' : 'Draft'} />
-          </div>
-        )}
+      {error && (
+        <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">
+          {getErrorMessage(error)}
+        </p>
+      )}
+
+      <div className="flex-1 overflow-auto">
+        <DataTable
+          columns={columns}
+          data={tableData}
+          isLoading={isLoading}
+          onEdit={() => setModalOpen(true)}
+        />
       </div>
 
       <HomepageModal isOpen={modalOpen} onClose={() => setModalOpen(false)} data={data ?? null} />
-    </>
-  );
-}
-
-function SummaryCard({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="p-4 rounded-lg border border-secondary/30 bg-surface/50">
-      <p className="text-[11px] font-bold text-text-secondary uppercase mb-1 font-[family-name:var(--font-manrope)]">{title}</p>
-      <p className="text-sm font-semibold text-navy truncate font-[family-name:var(--font-poppins)]">{value || '—'}</p>
     </div>
   );
 }
