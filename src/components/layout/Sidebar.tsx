@@ -7,17 +7,21 @@ import { useLogout } from '@/hooks/useAuth';
 import {
   LayoutDashboard,
   Video,
+  FileVideo,
   Newspaper,
+  FileText,
   Target,
+  FilePlus,
   MessageCircle,
-  CalendarCheck,
+  FileEdit,
   MapPin,
+  Map,
+  CalendarCheck,
   Grid3X3,
   Settings,
   Home,
   Info,
   Phone,
-  Image,
   LogOut,
   type LucideIcon,
 } from 'lucide-react';
@@ -29,19 +33,23 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-  { label: 'Shorts Management', icon: Video, href: '/shorts' },
-  { label: 'News Management', icon: Newspaper, href: '/news' },
-  { label: 'Upcoming Initiatives', icon: Target, href: '/initiatives' },
-  { label: 'Consultation Sessions', icon: MessageCircle, href: '/consultations' },
-  { label: 'Booked Consultations', icon: CalendarCheck, href: '/bookings' },
-  { label: 'Emirates', icon: MapPin, href: '/emirates' },
-  { label: 'Initiative Category', icon: Grid3X3, href: '/categories' },
-  { label: 'Homepage Content', icon: Home, href: '/homepage' },
-  { label: 'About Us Content', icon: Info, href: '/about' },
-  { label: 'Contact Content', icon: Phone, href: '/contact' },
-  { label: 'Media Library', icon: Image, href: '/media' },
-  { label: 'Settings', icon: Settings, href: '/settings' },
+  { label: 'Dashboard',                    icon: LayoutDashboard, href: '/dashboard' },
+  { label: 'Shorts Management',            icon: Video,           href: '/shorts' },
+  { label: 'Shorts Content Management',    icon: FileVideo,       href: '/shorts-content' },
+  { label: 'News Management',              icon: Newspaper,       href: '/news' },
+  { label: 'News Content Management',      icon: FileText,        href: '/news-content' },
+  { label: 'Initiative Management',        icon: Target,          href: '/initiatives' },
+  { label: 'Initiatives Content Management', icon: FilePlus,      href: '/initiatives-content' },
+  { label: 'Consultation Management',      icon: MessageCircle,   href: '/consultations' },
+  { label: 'Consultations Content Management', icon: FileEdit,    href: '/consultations-content' },
+  { label: 'Emirates Management',          icon: MapPin,          href: '/emirates' },
+  { label: 'Emirates Content Management',  icon: Map,             href: '/emirates-content' },
+  { label: 'Homepage Content',             icon: Home,            href: '/homepage' },
+  { label: 'About Us Content',             icon: Info,            href: '/about' },
+  { label: 'Contact Content',              icon: Phone,           href: '/contact' },
+  { label: 'Book Consultation',            icon: CalendarCheck,   href: '/bookings' },
+  { label: 'Initiative Category',          icon: Grid3X3,         href: '/categories' },
+  { label: 'Settings',                     icon: Settings,        href: '/settings' },
 ];
 
 export default function Sidebar() {
@@ -54,7 +62,7 @@ export default function Sidebar() {
         <img src="/logo.png" alt="Marage Support" className="w-full h-full object-fill rounded-lg" />
       </div>
 
-      <nav className="flex flex-col gap-1 w-full items-center flex-1">
+      <nav className="flex flex-col gap-1 w-full items-center flex-1 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -64,7 +72,7 @@ export default function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                'w-[224px] h-11 flex items-center gap-2 px-3 rounded-[30px] transition-colors',
+                'w-[224px] h-11 flex items-center gap-2 px-3 rounded-[30px] transition-colors shrink-0',
                 isActive
                   ? 'bg-primary text-white'
                   : 'text-[#010101] hover:bg-sidebar-hover'
@@ -82,7 +90,7 @@ export default function Sidebar() {
       <button
         onClick={() => logout.mutate()}
         disabled={logout.isPending}
-        className="w-[224px] h-11 flex items-center gap-2 px-3 rounded-[30px] text-[#010101] hover:bg-sidebar-hover transition-colors cursor-pointer disabled:opacity-50"
+        className="w-[224px] h-11 flex items-center gap-2 px-3 rounded-[30px] text-[#010101] hover:bg-sidebar-hover transition-colors cursor-pointer disabled:opacity-50 shrink-0 mt-2"
       >
         <LogOut size={18} className="shrink-0" />
         <span className="text-[13px] font-normal leading-[28px] whitespace-nowrap truncate font-[family-name:var(--font-poppins)]">
