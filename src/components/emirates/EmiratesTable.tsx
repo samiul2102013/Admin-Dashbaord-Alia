@@ -69,6 +69,7 @@ export default function EmiratesTable() {
     page: currentPage,
     perPage: ITEMS_PER_PAGE,
     search: search || undefined,
+    status: status || undefined,
   });
 
   function handleEdit(emirates: Emirates) {

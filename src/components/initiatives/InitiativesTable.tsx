@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, Plus, Star, StarOff } from 'lucide-react';
 import DataTable from '@/components/shared/DataTable';
 import Button from '@/components/shared/Button';
@@ -61,7 +61,7 @@ const columns: Column<Initiative>[] = [
 const ITEMS_PER_PAGE = 10;
 
 export default function InitiativesTable() {
-  const [currentPage, setCurrentPage] = useState(1);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -72,11 +72,15 @@ export default function InitiativesTable() {
   const updateInitiative = useUpdateInitiative();
 
   const { data, isLoading, isError, error } = useInitiatives({
-    page: currentPage,
+    page,
     perPage: ITEMS_PER_PAGE,
     search: search || undefined,
     status: status || undefined,
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, status]);
 
   function handleToggleFeatured(row: Initiative) {
     updateInitiative.mutate(
@@ -117,7 +121,7 @@ export default function InitiativesTable() {
             <input
               placeholder="Search initiatives..."
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full h-10 pl-9 pr-4 rounded-[10px] border border-secondary/40 bg-surface text-sm outline-none focus:border-primary transition-colors font-[family-name:var(--font-poppins)]"
             />
           </div>
@@ -126,7 +130,7 @@ export default function InitiativesTable() {
               placeholder="All statuses"
               options={STATUS_OPTIONS}
               value={status}
-              onChange={(e) => { setStatus(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => setStatus(e.target.value)}
             />
           </div>
         </div>
@@ -162,7 +166,7 @@ export default function InitiativesTable() {
           <Pagination
             currentPage={data.meta.page}
             totalPages={data.meta.totalPages}
-            onPageChange={setCurrentPage}
+            onPageChange={setPage}
           />
         </div>
       )}
