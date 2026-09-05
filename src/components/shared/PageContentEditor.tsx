@@ -204,7 +204,7 @@ function ShortsExtrasEditor({
 }: ShortsExtrasEditorProps) {
   return (
     <div className="flex flex-col gap-6 border-t border-secondary/30 pt-5">
-      <SectionLabel title="Explore Topics" hint="Shown as cards on the Shorts page." />
+      <SectionLabel title="Explore Topics" hint="Topic cards shown on the Shorts page (title + video count)." />
       {topics.map((topic, i) => (
         <div key={i} className="flex flex-col md:flex-row items-start gap-2">
           <Input
@@ -244,14 +244,14 @@ function ShortsExtrasEditor({
         Add topic
       </Button>
 
-      <SectionLabel title="Contributors" hint="Names displayed on the Shorts page." />
+      <SectionLabel title="Trusted Contributors" hint="Names displayed as cards on the Shorts page." />
       {contributors.map((name, i) => (
-        <div key={i} className="flex items-start gap-2">
+        <div key={i} className="flex items-end gap-2">
           <div className="flex-1">
             <Input
-              label=""
+              label={`Contributor ${i + 1}`}
               value={name}
-              placeholder="Contributor name"
+              placeholder="e.g. Government Programs"
               onChange={(e) => {
                 const next = [...contributors];
                 next[i] = e.target.value;
@@ -262,7 +262,7 @@ function ShortsExtrasEditor({
           <button
             type="button"
             onClick={() => onChangeContributors(contributors.filter((_, idx) => idx !== i))}
-            className="mt-[28px] w-10 h-10 shrink-0 rounded-full bg-[#FDECEC] flex items-center justify-center hover:bg-[#FAD5D5] transition-colors cursor-pointer"
+            className="mb-[2px] w-10 h-10 shrink-0 rounded-full bg-[#FDECEC] flex items-center justify-center hover:bg-[#FAD5D5] transition-colors cursor-pointer"
             aria-label="Remove contributor"
           >
             <Trash2 size={16} className="text-danger" />
