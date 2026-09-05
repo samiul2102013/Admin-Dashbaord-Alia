@@ -1,4 +1,4 @@
-'use client';
+    'use client';
 
 import { useEffect, useState } from 'react';
 import { Save, Loader2, CheckCircle2, Plus, Trash2 } from 'lucide-react';

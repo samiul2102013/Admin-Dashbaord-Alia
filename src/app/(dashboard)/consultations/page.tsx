@@ -7,8 +7,8 @@ import PageContentEditor from '@/components/shared/PageContentEditor';
 import type { Tab } from '@/components/shared/TabBar';
 
 const TABS: Tab[] = [
-  { key: 'management', label: 'Consultation Sessions' },
-  { key: 'content', label: 'Consultation Page Content' },
+  { key: 'management', label: 'Consultation' },
+  { key: 'content', label: 'Consultation Content' },
 ];
 
 export default function ConsultationsPage() {
@@ -17,7 +17,7 @@ export default function ConsultationsPage() {
   return (
     <div className="flex flex-col gap-5 h-full">
       <h3 className="text-navy text-[14px] font-bold leading-[100%] font-[family-name:var(--font-manrope)] shrink-0">
-        {activeTab === 'management' ? 'Consultation Sessions' : 'Consultation Page Content'}
+        {activeTab === 'management' ? 'Consultation' : 'Consultation Content'}
       </h3>
 
       <TabBar tabs={TABS} activeKey={activeTab} onChange={setActiveTab} />

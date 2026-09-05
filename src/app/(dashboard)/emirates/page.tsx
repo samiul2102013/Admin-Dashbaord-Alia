@@ -8,7 +8,7 @@ import type { Tab } from '@/components/shared/TabBar';
 
 const TABS: Tab[] = [
   { key: 'management', label: 'Emirates' },
-  { key: 'content', label: 'Emirates Page Content' },
+  { key: 'content', label: 'Emirates Content' },
 ];
 
 export default function EmiratesPage() {
@@ -17,7 +17,7 @@ export default function EmiratesPage() {
   return (
     <div className="flex flex-col gap-5 h-full">
       <h3 className="text-navy text-[14px] font-bold leading-[100%] font-[family-name:var(--font-manrope)] shrink-0">
-        {activeTab === 'management' ? 'Emirates' : 'Emirates Page Content'}
+        {activeTab === 'management' ? 'Emirates' : 'Emirates Content'}
       </h3>
 
       <TabBar tabs={TABS} activeKey={activeTab} onChange={setActiveTab} />
