@@ -15,6 +15,7 @@ export interface ShortsSectionVisibility {
   topics: boolean;
   contributors: boolean;
   faqs: boolean;
+  cta: boolean;
 }
 
 export interface Presentation {

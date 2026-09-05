@@ -64,7 +64,7 @@ const SHORTS_DEFAULT_FAQS: PresentationFaq[] = [
 ];
 
 const DEFAULT_SECTION_VISIBILITY: ShortsSectionVisibility = {
-  hero: true, topics: true, contributors: true, faqs: true,
+  hero: true, topics: true, contributors: true, faqs: true, cta: true,
 };
 
 function applyShortsFallbacks(p: Presentation): Presentation {
@@ -433,6 +433,21 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
             >
               <Plus size={16} /> Add FAQ
             </Button>
+          </CollapsibleSection>
+
+          {/* Explore More CTA Banner */}
+          <CollapsibleSection
+            id="cta" title="Explore More Marriage Support"
+            hint="Bottom CTA banner on the Shorts page"
+            visible={vis('cta')}
+            onToggleVisible={() => setVis('cta', !vis('cta'))}
+            collapsed={!!collapsed['cta']}
+            onToggleCollapsed={() => toggleCollapse('cta')}
+          >
+            <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+              The text content for this banner (title, description, button labels) is managed via
+              the i18n translation files. Use the visibility toggle above to show or hide it entirely.
+            </p>
           </CollapsibleSection>
         </>
       )}
