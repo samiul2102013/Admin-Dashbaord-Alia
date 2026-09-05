@@ -1,12 +1,29 @@
+'use client';
+
+import { useState } from 'react';
 import ConsultationsTable from '@/components/consultations/ConsultationsTable';
+import TabBar from '@/components/shared/TabBar';
+import PageContentEditor from '@/components/shared/PageContentEditor';
+import type { Tab } from '@/components/shared/TabBar';
+
+const TABS: Tab[] = [
+  { key: 'management', label: 'Consultation Sessions' },
+  { key: 'content', label: 'Consultation Page Content' },
+];
 
 export default function ConsultationsPage() {
+  const [activeTab, setActiveTab] = useState('management');
+
   return (
     <div className="flex flex-col gap-5 h-full">
       <h3 className="text-navy text-[14px] font-bold leading-[100%] font-[family-name:var(--font-manrope)] shrink-0">
-        Consultation Sessions
+        {activeTab === 'management' ? 'Consultation Sessions' : 'Consultation Page Content'}
       </h3>
-      <ConsultationsTable />
+
+      <TabBar tabs={TABS} activeKey={activeTab} onChange={setActiveTab} />
+
+      {activeTab === 'management' && <ConsultationsTable />}
+      {activeTab === 'content' && <PageContentEditor presentationKey="consultation" />}
     </div>
   );
 }
