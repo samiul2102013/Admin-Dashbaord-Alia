@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Save, Loader2, Pencil, CheckCircle2 } from 'lucide-react';
+import { Save, Loader2, Pencil, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
@@ -12,7 +12,7 @@ import {
   updatePresentation,
   SECTION_LABELS,
 } from '@/lib/services/presentations';
-import type { Presentation } from '@/types/presentations';
+import type { Presentation, PresentationFaq, PresentationTopic } from '@/types/presentations';
 
 const EDITABLE_KEYS = ['news', 'shorts', 'consultation', 'home', 'initiatives', 'emirates'];
 
@@ -58,6 +58,9 @@ export default function WebsiteContentPanel() {
         badge: editing.badge,
         heroImage: editing.heroImage,
         published: editing.published,
+        topics: editing.topics,
+        contributors: editing.contributors,
+        faqs: editing.faqs,
       });
       setItems((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       setSaved(true);
@@ -72,6 +75,10 @@ export default function WebsiteContentPanel() {
   const setField = (patch: Partial<Presentation>) => {
     setEditing((prev) => (prev ? { ...prev, ...patch } : prev));
   };
+
+  const setTopics = (topics: PresentationTopic[]) => setField({ topics });
+  const setContributors = (contributors: string[]) => setField({ contributors });
+  const setFaqs = (faqs: PresentationFaq[]) => setField({ faqs });
 
   return (
     <div className="flex flex-col gap-5 flex-1 min-h-0">
@@ -166,6 +173,17 @@ export default function WebsiteContentPanel() {
             <Input label="Badge" value={editing.badge} onChange={(e) => setField({ badge: e.target.value })} />
             <Input label="Hero Image URL" value={editing.heroImage} onChange={(e) => setField({ heroImage: e.target.value })} />
 
+            {editing.key === 'shorts' && (
+              <ShortsExtrasEditor
+                topics={editing.topics ?? []}
+                contributors={editing.contributors ?? []}
+                faqs={editing.faqs ?? []}
+                onChangeTopics={setTopics}
+                onChangeContributors={setContributors}
+                onChangeFaqs={setFaqs}
+              />
+            )}
+
             <label className="flex items-center gap-3 cursor-pointer font-[family-name:var(--font-poppins)]">
               <input
                 type="checkbox"
@@ -178,6 +196,166 @@ export default function WebsiteContentPanel() {
           </div>
         )}
       </Modal>
+    </div>
+  );
+}
+
+interface ShortsExtrasEditorProps {
+  topics: PresentationTopic[];
+  contributors: string[];
+  faqs: PresentationFaq[];
+  onChangeTopics: (topics: PresentationTopic[]) => void;
+  onChangeContributors: (contributors: string[]) => void;
+  onChangeFaqs: (faqs: PresentationFaq[]) => void;
+}
+
+function ShortsExtrasEditor({
+  topics,
+  contributors,
+  faqs,
+  onChangeTopics,
+  onChangeContributors,
+  onChangeFaqs,
+}: ShortsExtrasEditorProps) {
+  return (
+    <div className="flex flex-col gap-6 border-t border-secondary/30 pt-5">
+      <SectionLabel title="Explore Topics" hint="Shown as cards on the Shorts page." />
+
+      {topics.map((topic, i) => (
+        <div key={i} className="flex flex-col md:flex-row items-start gap-2">
+          <Input
+            label="Topic Title"
+            value={topic.title}
+            onChange={(e) => {
+              const next = [...topics];
+              next[i] = { ...topic, title: e.target.value };
+              onChangeTopics(next);
+            }}
+          />
+          <Input
+            label="Videos Count"
+            value={topic.videos ?? ''}
+            onChange={(e) => {
+              const next = [...topics];
+              next[i] = { ...topic, videos: e.target.value };
+              onChangeTopics(next);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => onChangeTopics(topics.filter((_, idx) => idx !== i))}
+            className="mt-[26px] w-10 h-10 shrink-0 rounded-full bg-[#FDECEC] flex items-center justify-center hover:bg-[#FAD5D5] transition-colors cursor-pointer"
+            aria-label="Remove topic"
+          >
+            <Trash2 size={16} className="text-danger" />
+          </button>
+        </div>
+      ))}
+      <Button variant="ghost" size="sm" onClick={() => onChangeTopics([...topics, { title: '', videos: '' }])}>
+        <Plus size={16} />
+        Add topic
+      </Button>
+
+      <SectionLabel title="Contributors" hint="Names displayed on the Shorts page." />
+      {contributors.map((name, i) => (
+        <div key={i} className="flex items-start gap-2 col-span-full">
+          <div className="flex-1">
+            <Input
+              label=""
+              value={name}
+              onChange={(e) => {
+                const next = [...contributors];
+                next[i] = e.target.value;
+                onChangeContributors(next);
+              }}
+              placeholder="Contributor name"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => onChangeContributors(contributors.filter((_, idx) => idx !== i))}
+            className="mt-[28px] w-10 h-10 shrink-0 rounded-full bg-[#FDECEC] flex items-center justify-center hover:bg-[#FAD5D5] transition-colors cursor-pointer"
+            aria-label="Remove contributor"
+          >
+            <Trash2 size={16} className="text-danger" />
+          </button>
+        </div>
+      ))}
+      <Button variant="ghost" size="sm" onClick={() => onChangeContributors([...contributors, ''])}>
+        <Plus size={16} />
+        Add contributor
+      </Button>
+
+      <SectionLabel title="FAQs" hint="Accordion questions on the Shorts page." />
+      {faqs.map((faq, i) => (
+        <div key={i} className="flex flex-col gap-2 rounded-lg border border-secondary/30 p-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <Input
+              label="Question (EN)"
+              value={faq.question}
+              onChange={(e) => {
+                const next = [...faqs];
+                next[i] = { ...faq, question: e.target.value };
+                onChangeFaqs(next);
+              }}
+            />
+            <Input
+              label="Question (AR)"
+              value={faq.questionAr ?? ''}
+              onChange={(e) => {
+                const next = [...faqs];
+                next[i] = { ...faq, questionAr: e.target.value };
+                onChangeFaqs(next);
+              }}
+            />
+            <Input
+              label="Answer (EN)"
+              value={faq.answer}
+              onChange={(e) => {
+                const next = [...faqs];
+                next[i] = { ...faq, answer: e.target.value };
+                onChangeFaqs(next);
+              }}
+            />
+            <Input
+              label="Answer (AR)"
+              value={faq.answerAr ?? ''}
+              onChange={(e) => {
+                const next = [...faqs];
+                next[i] = { ...faq, answerAr: e.target.value };
+                onChangeFaqs(next);
+              }}
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => onChangeFaqs(faqs.filter((_, idx) => idx !== i))}
+              className="w-10 h-10 rounded-full bg-[#FDECEC] flex items-center justify-center hover:bg-[#FAD5D5] transition-colors cursor-pointer"
+              aria-label="Remove FAQ"
+            >
+              <Trash2 size={16} className="text-danger" />
+            </button>
+          </div>
+        </div>
+      ))}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => onChangeFaqs([...faqs, { question: '', questionAr: '', answer: '', answerAr: '' }])}
+      >
+        <Plus size={16} />
+        Add FAQ
+      </Button>
+    </div>
+  );
+}
+
+function SectionLabel({ title, hint }: { title: string; hint: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-sm font-bold text-black font-[family-name:var(--font-poppins)]">{title}</span>
+      <span className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">{hint}</span>
     </div>
   );
 }

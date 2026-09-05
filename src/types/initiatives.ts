@@ -7,6 +7,7 @@ export interface Initiative {
   endDate: string;
   status: 'Published' | 'Draft' | 'Pending';
   isFeatured?: boolean;
+  isListed?: boolean;
   slug?: string;
   titleAr?: string;
   subtitle?: string;

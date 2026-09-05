@@ -8,6 +8,8 @@ export interface AboutContent {
   browseSessionAr: string;
   contactSupport: string;
   contactSupportAr: string;
+  heroImage: string;
+  heroImageAlt: string;
   // Our Story
   ourStory: string;
   ourStoryAr: string;

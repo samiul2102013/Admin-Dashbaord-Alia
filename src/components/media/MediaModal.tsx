@@ -7,6 +7,7 @@ import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Select from '@/components/shared/Select';
 import Button from '@/components/shared/Button';
+import ChunkedUploader from '@/components/shared/ChunkedUploader';
 import { getErrorMessage } from '@/lib/api-client';
 import { mediaKeys, createMediaItem, updateMediaItem } from '@/lib/services/media';
 import type { MediaItem } from '@/types/media';
@@ -115,6 +116,20 @@ export default function MediaModal({ isOpen, onClose, item }: MediaModalProps) {
           <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>
         )}
 
+        <div>
+          <label className="text-xs font-bold text-text-secondary uppercase mb-2 block font-[family-name:var(--font-manrope)]">
+            Upload File
+          </label>
+          <p className="text-[11px] text-text-secondary mb-2 font-[family-name:var(--font-poppins)]">
+            Upload via the chunked uploader, or paste a URL below. Images up to 5 GB.
+          </p>
+          <ChunkedUploader
+            value={formData.fileUrl || ''}
+            category={(formData.category as 'image' | 'video' | 'document') || 'image'}
+            label="Upload File"
+            onChange={(url) => setField({ fileUrl: url })}
+          />
+        </div>
         <Input label="File URL" value={formData.fileUrl || ''} onChange={(e) => setField({ fileUrl: e.target.value })} placeholder="https://..." />
         <Input label="Filename" value={formData.filename || ''} onChange={(e) => setField({ filename: e.target.value })} />
         <Input label="Alt Text (EN)" value={formData.alt || ''} onChange={(e) => setField({ alt: e.target.value })} />

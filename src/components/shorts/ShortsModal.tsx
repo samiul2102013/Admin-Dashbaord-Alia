@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Select from '@/components/shared/Select';
 import Button from '@/components/shared/Button';
+import ChunkedUploader from '@/components/shared/ChunkedUploader';
 import {
   LANGUAGE_OPTIONS,
   MARITAL_STAGE_OPTIONS,
@@ -14,7 +15,6 @@ import {
   STATUS_OPTIONS,
 } from '@/lib/constants';
 import { useCreateShort, useUpdateShort } from '@/hooks/useShorts';
-import { useUpload } from '@/hooks/useMeta';
 import { getErrorMessage } from '@/lib/api-client';
 import type { Short, ShortResource } from '@/types/shorts';
 
@@ -29,7 +29,6 @@ const emptyResources: ShortResource[] = [{ title: '', url: '', type: '' }];
 export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps) {
   const createShort = useCreateShort();
   const updateShort = useUpdateShort();
-  const upload = useUpload();
 
   const [videoTitle, setVideoTitle] = useState('');
   const [videoTitleAr, setVideoTitleAr] = useState('');
@@ -57,6 +56,9 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
   });
   const [status, setStatus] = useState('Draft');
   const [error, setError] = useState('');
+
+  // track if a chunked upload is in progress so the modal "Save" stays disabled
+  // (the upload widget is self-driving and updates the URL fields directly).
 
   useEffect(() => {
     if (short) {
@@ -118,27 +120,7 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
   }, [short, isOpen]);
 
   const mutation = short ? updateShort : createShort;
-  const isPending = mutation.isPending || upload.isPending;
-
-  async function handleCoverFile(file: File) {
-    setError('');
-    try {
-      const res = await upload.mutateAsync(file);
-      setCoverImage(res.url);
-    } catch (uploadError) {
-      setError(`Cover upload failed: ${getErrorMessage(uploadError)}`);
-    }
-  }
-
-  async function handleVideoFile(file: File) {
-    setError('');
-    try {
-      const res = await upload.mutateAsync(file);
-      setVideoUrl(res.url);
-    } catch (uploadError) {
-      setError(`Video upload failed: ${getErrorMessage(uploadError)}`);
-    }
-  }
+  const isPending = mutation.isPending;
 
   function handleSubmit() {
     if (!videoTitle.trim()) {
@@ -246,28 +228,30 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
 
         <div className="flex gap-8">
           <div className="flex-1">
-            <div className="flex flex-col gap-[26px]">
+            <div className="flex flex-col gap-[10px]">
               <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
                 Cover Image
               </label>
-              <FileUpload
+              <ChunkedUploader
                 value={coverImage}
-                onUpload={handleCoverFile}
-                isUploading={upload.isPending}
+                category="image"
                 label="Upload Cover Image"
+                onChange={setCoverImage}
+                helperText="Recommended 1280 × 720 px. JPG / PNG / WebP. Multi-GB supported."
               />
             </div>
           </div>
           <div className="flex-1">
-            <div className="flex flex-col gap-[26px]">
+            <div className="flex flex-col gap-[10px]">
               <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
                 Video Upload
               </label>
-              <FileUpload
+              <ChunkedUploader
                 value={videoUrl}
-                onUpload={handleVideoFile}
-                isUploading={upload.isPending}
+                category="video"
                 label="Upload Video"
+                onChange={setVideoUrl}
+                helperText="Recommended 1080p MP4. Up to 5 GB; chunked upload with progress."
               />
             </div>
           </div>
@@ -410,50 +394,4 @@ function updateResource(index: number, field: keyof ShortResource, value: string
     const next = prev.map((r, i) => (i === index ? { ...r, [field]: value } : r));
     return next;
   };
-}
-
-interface FileUploadProps {
-  value: string;
-  label: string;
-  isUploading: boolean;
-  onUpload: (file: File) => void;
-}
-
-function FileUpload({ value, label, isUploading, onUpload }: FileUploadProps) {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) onUpload(file);
-    e.target.value = '';
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      {value && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={value}
-          alt={label}
-          className="h-28 w-full rounded-[10px] object-cover bg-secondary/20"
-        />
-      )}
-      <label className="w-full h-32 rounded-[10px] border-2 border-dashed border-secondary/40 bg-surface/50 flex items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
-        <input type="file" className="hidden" onChange={handleChange} />
-        <span className="flex items-center gap-2 text-sm text-text-secondary font-[family-name:var(--font-poppins)]">
-          {isUploading ? (
-            <>
-              <Loader2 size={16} className="animate-spin text-primary" />
-              Uploading...
-            </>
-          ) : (
-            `+ ${label}`
-          )}
-        </span>
-      </label>
-      {value && (
-        <p className="text-xs text-primary break-all font-[family-name:var(--font-poppins)]">
-          {value.split('/').pop() || value}
-        </p>
-      )}
-    </div>
-  );
 }

@@ -1,3 +1,15 @@
+export interface PresentationTopic {
+  title: string;
+  videos: string;
+}
+
+export interface PresentationFaq {
+  question: string;
+  questionAr: string;
+  answer: string;
+  answerAr: string;
+}
+
 export interface Presentation {
   id: string;
   key: string;
@@ -8,4 +20,7 @@ export interface Presentation {
   badge: string;
   heroImage: string;
   published: boolean;
+  topics: PresentationTopic[];
+  contributors: string[];
+  faqs: PresentationFaq[];
 }

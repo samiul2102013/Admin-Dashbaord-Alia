@@ -9,12 +9,13 @@ interface ModalProps {
   title?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: 'sm' | 'lg' | 'full';
+  size?: 'sm' | 'lg' | 'xl' | 'full';
 }
 
 const sizeStyles = {
   sm: 'max-w-md',
   lg: 'max-w-4xl',
+  xl: 'max-w-[1480px]',
   full: 'max-w-[1382px]',
 };
 
@@ -38,9 +39,9 @@ export default function Modal({ isOpen, onClose, title, children, footer, size =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[88px]">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-4">
       <div
-        className={`relative w-full ${sizeStyles[size]} mx-[29px] max-h-[calc(100vh-100px)] rounded-[12px] bg-surface shadow-xl flex flex-col`}
+        className={`relative w-full ${sizeStyles[size]} mx-4 max-h-[calc(100vh-32px)] rounded-[12px] bg-surface shadow-xl flex flex-col`}
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
           {title && (

@@ -10,7 +10,14 @@ import Button from '@/components/shared/Button';
 import { getErrorMessage } from '@/lib/api-client';
 import { saveHomepageContent, homepageKeys } from '@/lib/services/homepage';
 import { useUpload } from '@/hooks/useMeta';
-import type { HomepageContent, FloatingCard, StatItem } from '@/types/homepage';
+import {
+  DEFAULT_SECTION_VISIBILITY,
+  SECTION_VISIBILITY_LABELS,
+  type HomepageContent,
+  type FloatingCard,
+  type SectionVisibility,
+  type StatItem,
+} from '@/types/homepage';
 
 interface HomepageModalProps {
   isOpen: boolean;
@@ -19,6 +26,7 @@ interface HomepageModalProps {
 }
 
 const SECTIONS = [
+  'Section Visibility',
   'Hero',
   'Stats',
   'Shorts Header',
@@ -30,6 +38,17 @@ const SECTIONS = [
 ] as const;
 
 type SectionKey = (typeof SECTIONS)[number];
+
+const SECTION_KEYS: (keyof SectionVisibility)[] = [
+  'hero',
+  'stats',
+  'shorts',
+  'news',
+  'initiatives',
+  'consultations',
+  'emirates',
+  'cta',
+];
 
 function cloneData(d: HomepageContent | null): HomepageContent {
   return d
@@ -59,6 +78,7 @@ function cloneData(d: HomepageContent | null): HomepageContent {
         ctaPrimaryLabel: '', ctaPrimaryLabelAr: '', ctaPrimaryLink: '',
         ctaSecondaryLabel: '', ctaSecondaryLabelAr: '', ctaSecondaryLink: '',
         published: false,
+        sectionVisibility: { ...DEFAULT_SECTION_VISIBILITY },
       };
 }
 
@@ -66,13 +86,13 @@ export default function HomepageModal({ isOpen, onClose, data }: HomepageModalPr
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState<HomepageContent>(() => cloneData(data));
   const [error, setError] = useState('');
-  const [openSections, setOpenSections] = useState<Set<SectionKey>>(new Set(['Hero']));
+  const [openSections, setOpenSections] = useState<Set<SectionKey>>(new Set(['Section Visibility', 'Hero']));
 
   useEffect(() => {
     if (isOpen) {
       setFormData(cloneData(data));
       setError('');
-      setOpenSections(new Set(['Hero']));
+      setOpenSections(new Set(['Section Visibility', 'Hero']));
     }
   }, [isOpen, data]);
 
@@ -137,11 +157,43 @@ export default function HomepageModal({ isOpen, onClose, data }: HomepageModalPr
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Edit Homepage Content" footer={footer}>
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit Homepage Content" size="xl" footer={footer}>
       <div className="flex flex-col gap-4">
         {error && (
           <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>
         )}
+
+        {/* Section Visibility — controls what the user panel actually shows. */}
+        <SectionBlock
+          title="Section Visibility"
+          isOpen={openSections.has('Section Visibility')}
+          onToggle={() => toggleSection('Section Visibility')}
+        >
+          <p className="col-span-full text-xs text-text-secondary -mt-2 mb-2 font-[family-name:var(--font-poppins)]">
+            Toggle each section on or off. When a section is off it disappears from the website until you turn it back on.
+          </p>
+          {SECTION_KEYS.map((key) => {
+            const vis = formData.sectionVisibility || DEFAULT_SECTION_VISIBILITY;
+            const enabled = vis[key] ?? true;
+            return (
+              <label key={key} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-secondary/30 bg-surface/50">
+                <span className="text-sm font-semibold font-[family-name:var(--font-poppins)]">
+                  {SECTION_VISIBILITY_LABELS[key]}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={(e) =>
+                    setField({
+                      sectionVisibility: { ...vis, [key]: e.target.checked },
+                    })
+                  }
+                  className="w-5 h-5 accent-primary cursor-pointer"
+                />
+              </label>
+            );
+          })}
+        </SectionBlock>
 
         {/* Hero Section */}
         <SectionBlock title="Hero Section" isOpen={openSections.has('Hero')} onToggle={() => toggleSection('Hero')}>
@@ -167,6 +219,9 @@ export default function HomepageModal({ isOpen, onClose, data }: HomepageModalPr
             <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)] mb-2 block">
               Hero Image
             </label>
+            <p className="text-[11px] text-text-secondary mb-2 font-[family-name:var(--font-poppins)]">
+              Recommended size: 1280 × 800 px (4:5 portrait also works). JPG / PNG / WebP, max 5 GB.
+            </p>
             <FileUpload
               value={formData.heroImage}
               label="Upload Hero Image"

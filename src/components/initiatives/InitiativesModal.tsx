@@ -1,16 +1,15 @@
 'use client';
 
-import { useEffect, useState, type ChangeEvent } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Select from '@/components/shared/Select';
 import Button from '@/components/shared/Button';
+import ChunkedUploader from '@/components/shared/ChunkedUploader';
 import { EMIRATES_OPTIONS, STATUS_OPTIONS } from '@/lib/constants';
 import { getErrorMessage } from '@/lib/api-client';
 import { useCreateInitiative, useUpdateInitiative } from '@/hooks/useInitiatives';
-import { useUpload } from '@/hooks/useMeta';
 import { useCategories } from '@/hooks/useCategories';
 import type { Initiative } from '@/types/initiatives';
 
@@ -66,48 +65,18 @@ function parseSupportOffered(value?: Record<string, boolean>) {
 function FileUpload({
   value,
   label,
-  isUploading,
-  onUpload,
+  onChange,
 }: {
   value: string;
   label: string;
-  isUploading: boolean;
-  onUpload: (file: File) => void;
+  onChange: (next: string) => void;
 }) {
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) onUpload(file);
-    event.target.value = '';
-  };
-
   return (
     <div className="flex flex-col gap-2">
-      {value && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={value}
-          alt={label}
-          className="h-28 w-full rounded-[10px] object-cover bg-secondary/20"
-        />
-      )}
-      <label className="w-full h-32 rounded-[10px] border-2 border-dashed border-secondary/40 bg-surface/50 flex items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
-        <input type="file" className="hidden" onChange={handleChange} />
-        <span className="flex items-center gap-2 text-sm text-text-secondary font-[family-name:var(--font-poppins)]">
-          {isUploading ? (
-            <>
-              <Loader2 size={16} className="animate-spin text-primary" />
-              Uploading...
-            </>
-          ) : (
-            `+ ${label}`
-          )}
-        </span>
+      <label className="text-[11px] font-bold text-text-secondary uppercase font-[family-name:var(--font-manrope)]">
+        {label}
       </label>
-      {value && (
-        <p className="text-xs text-primary break-all font-[family-name:var(--font-poppins)]">
-          {value.split('/').pop() || value}
-        </p>
-      )}
+      <ChunkedUploader value={value} category="image" label={label} onChange={onChange} helperText="Recommended 1280 × 720 px." />
     </div>
   );
 }
@@ -115,7 +84,6 @@ function FileUpload({
 export default function InitiativesModal({ isOpen, onClose, initiative }: InitiativesModalProps) {
   const createInitiative = useCreateInitiative();
   const updateInitiative = useUpdateInitiative();
-  const upload = useUpload();
   const { data: categoriesData } = useCategories();
 
   const categoryOptions =
@@ -147,6 +115,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
   const [showBenefits, setShowBenefits] = useState(true);
   const [showApplicationForm, setShowApplicationForm] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
+  const [isListed, setIsListed] = useState(true);
   const [status, setStatus] = useState('Draft');
   const [error, setError] = useState('');
 
@@ -176,6 +145,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       setShowBenefits(initiative.showBenefits ?? true);
       setShowApplicationForm(initiative.showApplicationForm ?? true);
       setIsFeatured(Boolean(initiative.isFeatured));
+      setIsListed(initiative.isListed ?? true);
       setStatus(initiative.status || 'Draft');
     } else {
       setTitle('');
@@ -202,6 +172,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       setShowBenefits(true);
       setShowApplicationForm(true);
       setIsFeatured(false);
+      setIsListed(true);
       setStatus('Draft');
     }
 
@@ -211,17 +182,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
   }, [initiative, isOpen]);
 
   const mutation = initiative ? updateInitiative : createInitiative;
-  const isPending = mutation.isPending || upload.isPending;
-
-  async function handleCoverFile(file: File) {
-    setError('');
-    try {
-      const res = await upload.mutateAsync(file);
-      setCoverImage(res.url);
-    } catch (uploadError) {
-      setError(`Cover upload failed: ${getErrorMessage(uploadError)}`);
-    }
-  }
+  const isPending = mutation.isPending;
 
   function handleSubmit() {
     if (!title.trim()) {
@@ -264,6 +225,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       showBenefits,
       showApplicationForm,
       isFeatured,
+      isListed,
       status: status as Initiative['status'],
     };
 
@@ -429,8 +391,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
             <FileUpload
               value={coverImage}
               label="Upload Cover Image"
-              isUploading={upload.isPending}
-              onUpload={handleCoverFile}
+              onChange={setCoverImage}
             />
           </div>
           <div className="flex-1 flex flex-col justify-between gap-4">
@@ -448,6 +409,27 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
                   type="checkbox"
                   checked={isFeatured}
                   onChange={(e) => setIsFeatured(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <span className="h-6 w-11 rounded-full bg-secondary/30 transition-colors peer-checked:bg-primary" />
+                <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between rounded-[10px] border border-secondary/40 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold font-[family-name:var(--font-poppins)] text-text-primary">
+                  Show on Initiatives listing
+                </p>
+                <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+                  When off, this initiative only appears under its emirate.
+                </p>
+              </div>
+              <label className="relative inline-flex cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  checked={isListed}
+                  onChange={(e) => setIsListed(e.target.checked)}
                   className="peer sr-only"
                 />
                 <span className="h-6 w-11 rounded-full bg-secondary/30 transition-colors peer-checked:bg-primary" />

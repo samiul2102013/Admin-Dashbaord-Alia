@@ -95,4 +95,38 @@ export interface HomepageContent {
   ctaSecondaryLink: string;
   // Visibility
   published: boolean;
+  sectionVisibility: SectionVisibility;
 }
+
+export interface SectionVisibility {
+  hero: boolean;
+  stats: boolean;
+  shorts: boolean;
+  news: boolean;
+  initiatives: boolean;
+  consultations: boolean;
+  emirates: boolean;
+  cta: boolean;
+}
+
+export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
+  hero: true,
+  stats: true,
+  shorts: true,
+  news: true,
+  initiatives: true,
+  consultations: true,
+  emirates: true,
+  cta: true,
+};
+
+export const SECTION_VISIBILITY_LABELS: Record<keyof SectionVisibility, string> = {
+  hero: 'Show Hero Section',
+  stats: 'Show Stats Section',
+  shorts: 'Show Shorts Section',
+  news: 'Show Latest News Section',
+  initiatives: 'Show Initiatives Section',
+  consultations: 'Show Consultations Section',
+  emirates: 'Show Emirates Section',
+  cta: 'Show Call-To-Action Section',
+};
