@@ -10,6 +10,13 @@ export interface PresentationFaq {
   answerAr: string;
 }
 
+export interface ShortsSectionVisibility {
+  hero: boolean;
+  topics: boolean;
+  contributors: boolean;
+  faqs: boolean;
+}
+
 export interface Presentation {
   id: string;
   key: string;
@@ -23,4 +30,5 @@ export interface Presentation {
   topics: PresentationTopic[];
   contributors: string[];
   faqs: PresentationFaq[];
+  sectionVisibility: ShortsSectionVisibility;
 }
