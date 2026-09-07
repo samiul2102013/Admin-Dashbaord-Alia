@@ -12,7 +12,7 @@ import { getErrorMessage } from '@/lib/api-client';
 import { listPresentations, updatePresentation } from '@/lib/services/presentations';
 import { useUpload } from '@/hooks/useMeta';
 import type {
-  Presentation, PresentationFaq, PresentationTopic, ShortsSectionVisibility,
+  Presentation, PresentationFaq, PresentationTopic, ShortsSectionVisibility, ShortsCta,
   InitiativesSectionVisibility, ConsultationSectionVisibility, EmiratesSectionVisibility,
   NewsSectionVisibility,
 } from '@/types/presentations';
@@ -71,6 +71,17 @@ const DEFAULT_SECTION_VISIBILITY: ShortsSectionVisibility = {
   categories: true, orgs: true,
 };
 
+const DEFAULT_SHORTS_CTA: ShortsCta = {
+  title: 'Explore More Marriage Support',
+  titleAr: 'استكشف المزيد من دعم الزواج',
+  text: 'Discover more educational videos, consultation sessions, and marriage support initiatives across the UAE to help you build a strong foundation.',
+  textAr: 'اكتشف المزيد من الفيديوهات التعليمية وجلسات الاستشارة ومبادرات دعم الزواج في جميع أنحاء الإمارات لمساعدتك في بناء أساس قوي.',
+  browseLabel: 'Browse More Videos',
+  browseLabelAr: 'تصفح المزيد من الفيديوهات',
+  exploreLabel: 'Explore Initiatives',
+  exploreLabelAr: 'استكشف المبادرات',
+};
+
 const DEFAULT_INITIATIVES_SECTION_VISIBILITY: InitiativesSectionVisibility = {
   hero: true, topics: true, contributors: true, faqs: true, cta: true,
 };
@@ -81,6 +92,7 @@ function applyShortsFallbacks(p: Presentation): Presentation {
     topics:            p.topics?.length       ? p.topics       : SHORTS_DEFAULT_TOPICS,
     contributors:      p.contributors?.length ? p.contributors : SHORTS_DEFAULT_CONTRIBUTORS,
     faqs:              p.faqs?.length         ? p.faqs         : SHORTS_DEFAULT_FAQS,
+    shortsCta:         { ...DEFAULT_SHORTS_CTA, ...(p.shortsCta ?? {}) },
     sectionVisibility: { ...DEFAULT_SECTION_VISIBILITY, ...(p.sectionVisibility ?? {}) },
   };
 }
@@ -840,10 +852,18 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
             collapsed={!!collapsed['cta']}
             onToggleCollapsed={() => toggleCollapse('cta')}
           >
-            <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
-              The text content for this banner (title, description, button labels) is managed via
-              the i18n translation files. Use the visibility toggle above to show or hide it entirely.
-            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <Input label="Title (English)" value={data.shortsCta?.title ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, title: e.target.value } })} />
+              <Input label="Title (Arabic)" value={data.shortsCta?.titleAr ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, titleAr: e.target.value } })} />
+            </div>
+            <Textarea label="Description (English)" rows={3} value={data.shortsCta?.text ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, text: e.target.value } })} />
+            <Textarea label="Description (Arabic)" rows={3} value={data.shortsCta?.textAr ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, textAr: e.target.value } })} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <Input label="Browse Button Label (English)" value={data.shortsCta?.browseLabel ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, browseLabel: e.target.value } })} />
+              <Input label="Browse Button Label (Arabic)" value={data.shortsCta?.browseLabelAr ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, browseLabelAr: e.target.value } })} />
+              <Input label="Explore Button Label (English)" value={data.shortsCta?.exploreLabel ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, exploreLabel: e.target.value } })} />
+              <Input label="Explore Button Label (Arabic)" value={data.shortsCta?.exploreLabelAr ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, exploreLabelAr: e.target.value } })} />
+            </div>
           </CollapsibleSection>
         </>
       )}

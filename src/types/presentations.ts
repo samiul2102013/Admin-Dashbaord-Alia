@@ -11,6 +11,17 @@ export interface PresentationFaq {
   answerAr: string;
 }
 
+export interface ShortsCta {
+  title?: string;
+  titleAr?: string;
+  text?: string;
+  textAr?: string;
+  browseLabel?: string;
+  browseLabelAr?: string;
+  exploreLabel?: string;
+  exploreLabelAr?: string;
+}
+
 export interface ShortsSectionVisibility {
   hero: boolean;
   topics: boolean;
@@ -68,6 +79,7 @@ export interface Presentation {
   topics: PresentationTopic[];
   contributors: string[];
   faqs: PresentationFaq[];
+  shortsCta?: ShortsCta;
   sectionVisibility: ShortsSectionVisibility;
   initiativesTopics: PresentationTopic[];
   initiativesContributors: string[];
