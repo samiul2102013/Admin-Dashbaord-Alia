@@ -80,4 +80,5 @@ export interface ContactContent {
   longitude: string;
   // Visibility
   published: boolean;
+  sectionVisibility?: Record<string, boolean>;
 }

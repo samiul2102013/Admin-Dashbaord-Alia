@@ -266,6 +266,9 @@ export default function ContactContentEditor() {
       .then((result) => {
         if (!mounted) return;
         setData(result ? cloneData(result) : cloneData(null));
+        if (result?.sectionVisibility) {
+          setSectionVisibility((prev) => ({ ...prev, ...result.sectionVisibility }));
+        }
       })
       .catch((e) => { if (mounted) setError(getErrorMessage(e)); })
       .finally(() => { if (mounted) setLoading(false); });
@@ -279,7 +282,7 @@ export default function ContactContentEditor() {
     if (!data) return;
     setSaving(true); setSaved(false); setError('');
     try {
-      const updated = await saveContactContent(data);
+      const updated = await saveContactContent({ ...data, sectionVisibility });
       setData(cloneData(updated));
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);

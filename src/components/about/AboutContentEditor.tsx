@@ -99,7 +99,12 @@ export default function AboutContentEditor() {
   });
 
   useEffect(() => {
-    if (data) setFormData(cloneData(data));
+    if (data) {
+      setFormData(cloneData(data));
+      if (data.sectionVisibility) {
+        setVisibility((prev) => ({ ...prev, ...data.sectionVisibility }));
+      }
+    }
   }, [data]);
 
   useEffect(() => {
@@ -149,7 +154,7 @@ export default function AboutContentEditor() {
 
   const handleSave = () => {
     setError('');
-    saveMutation.mutate(formData);
+    saveMutation.mutate({ ...formData, sectionVisibility: visibility });
   };
 
   const isPending = saveMutation.isPending;

@@ -57,4 +57,5 @@ export interface AboutContent {
   coreValueList: string[];
   // Visibility
   published: boolean;
+  sectionVisibility?: Record<string, boolean>;
 }
