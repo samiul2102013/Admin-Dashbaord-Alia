@@ -3,6 +3,7 @@
 import { useState, useEffect, type ChangeEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
+import CollapsibleSection from '@/components/shared/CollapsibleSection';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Select from '@/components/shared/Select';
@@ -18,6 +19,14 @@ interface EmiratesModalProps {
   onClose: () => void;
   emirates?: Emirates | null;
 }
+
+type EmiratesSectionKey = 'details' | 'media' | 'display';
+
+const initialSections: Record<EmiratesSectionKey, boolean> = {
+  details: false,
+  media: false,
+  display: false,
+};
 
 function FileUpload({
   value,
@@ -86,6 +95,7 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
   const [showStatus, setShowStatus] = useState(true);
   const [status, setStatus] = useState('Draft');
   const [error, setError] = useState('');
+  const [openSections, setOpenSections] = useState<Record<EmiratesSectionKey, boolean>>(initialSections);
 
   useEffect(() => {
     if (emirates) {
@@ -121,10 +131,15 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
     setError('');
     createEmirate.reset();
     updateEmirate.reset();
+    setOpenSections(initialSections);
   }, [emirates, isOpen]);
 
   const mutation = emirates ? updateEmirate : createEmirate;
   const isPending = mutation.isPending || upload.isPending;
+
+  function toggleSection(key: EmiratesSectionKey) {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   async function handleImageFile(file: File) {
     setError('');
@@ -215,114 +230,130 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
           </div>
         </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input
-              label="Title"
-              placeholder="Display title (defaults to emirate name)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <Input
-              label="Date & Time"
-              type="datetime-local"
-              value={dateTime}
-              onChange={(e) => setDateTime(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div>
-          <Textarea
-            label="Description"
-            placeholder="Enter description of services and initiatives"
-            rows={5}
-            className="h-[149px]"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input
-              label="Contact Phone"
-              placeholder="e.g. +971 2 123 4567"
-              value={contactPhone}
-              onChange={(e) => setContactPhone(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <Input
-              label="Service Centers"
-              placeholder="e.g. 5"
-              type="number"
-              value={serviceCenters}
-              onChange={(e) => setServiceCenters(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input
-              label="Center Count"
-              placeholder="e.g. 12 Support Centers"
-              value={centerCount}
-              onChange={(e) => setCenterCount(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <Input
-              label="Website URL"
-              placeholder="https://..."
-              value={websiteUrl}
-              onChange={(e) => setWebsiteUrl(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <FileUpload
-              value={image}
-              label="Upload Emirate Image"
-              isUploading={upload.isPending}
-              onUpload={handleImageFile}
-            />
-          </div>
-          <div className="flex-1 flex flex-col justify-between gap-4">
-            <div className="flex items-center justify-between rounded-[10px] border border-secondary/40 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold font-[family-name:var(--font-poppins)] text-text-primary">
-                  Show Status
-                </p>
-                <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
-                  Display status badge on the public emirate page.
-                </p>
-              </div>
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  checked={showStatus}
-                  onChange={(e) => setShowStatus(e.target.checked)}
-                  className="peer sr-only"
-                />
-                <span className="h-6 w-11 rounded-full bg-secondary/30 transition-colors peer-checked:bg-primary" />
-                <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
-              </label>
+        <CollapsibleSection
+          title="Details"
+          hint="Contact and service info"
+          isOpen={openSections.details}
+          onToggle={() => toggleSection('details')}
+        >
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input
+                label="Title"
+                placeholder="Display title (defaults to emirate name)"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
             </div>
+            <div className="flex-1">
+              <Input
+                label="Date & Time"
+                type="datetime-local"
+                value={dateTime}
+                onChange={(e) => setDateTime(e.target.value)}
+              />
+            </div>
+          </div>
 
-            <Select
-              label="Status"
-              options={STATUS_OPTIONS}
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
+          <div>
+            <Textarea
+              label="Description"
+              placeholder="Enter description of services and initiatives"
+              rows={5}
+              className="h-[149px]"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
           </div>
-        </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input
+                label="Contact Phone"
+                placeholder="e.g. +971 2 123 4567"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                label="Service Centers"
+                placeholder="e.g. 5"
+                type="number"
+                value={serviceCenters}
+                onChange={(e) => setServiceCenters(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input
+                label="Center Count"
+                placeholder="e.g. 12 Support Centers"
+                value={centerCount}
+                onChange={(e) => setCenterCount(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                label="Website URL"
+                placeholder="https://..."
+                value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)}
+              />
+            </div>
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Media"
+          hint="Cover image"
+          isOpen={openSections.media}
+          onToggle={() => toggleSection('media')}
+        >
+          <FileUpload
+            value={image}
+            label="Upload Emirate Image"
+            isUploading={upload.isPending}
+            onUpload={handleImageFile}
+          />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Display Options"
+          hint="Toggle visibility"
+          isOpen={openSections.display}
+          onToggle={() => toggleSection('display')}
+        >
+          <div className="flex items-center justify-between rounded-[10px] border border-secondary/40 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold font-[family-name:var(--font-poppins)] text-text-primary">
+                Show Status
+              </p>
+              <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+                Display status badge on the public emirate page.
+              </p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={showStatus}
+                onChange={(e) => setShowStatus(e.target.checked)}
+                className="peer sr-only"
+              />
+              <span className="h-6 w-11 rounded-full bg-secondary/30 transition-colors peer-checked:bg-primary" />
+              <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
+            </label>
+          </div>
+
+          <Select
+            label="Status"
+            options={STATUS_OPTIONS}
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          />
+        </CollapsibleSection>
       </div>
     </Modal>
   );

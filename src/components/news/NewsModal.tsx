@@ -17,6 +17,7 @@ import {
 import { useCreateNewsArticle, useUpdateNewsArticle } from '@/hooks/useNewsArticles';
 import { useUpload } from '@/hooks/useMeta';
 import { getErrorMessage } from '@/lib/api-client';
+import CollapsibleSection from '@/components/shared/CollapsibleSection';
 import type { NewsArticle } from '@/types/news';
 
 interface NewsModalProps {
@@ -32,6 +33,15 @@ interface NewsResource {
 }
 
 const emptyResources: NewsResource[] = [{ title: '', url: '', type: '' }];
+
+type NewsSectionKey = 'media' | 'content' | 'resources' | 'display';
+
+const initialSections: Record<NewsSectionKey, boolean> = {
+  media: false,
+  content: false,
+  resources: false,
+  display: false,
+};
 
 const TOGGLE_KEYS = [
   'showArticleInfo',
@@ -77,6 +87,11 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
   });
   const [status, setStatus] = useState('Draft');
   const [error, setError] = useState('');
+  const [openSections, setOpenSections] = useState<Record<NewsSectionKey, boolean>>(initialSections);
+
+  function toggleSection(key: NewsSectionKey) {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   useEffect(() => {
     if (article) {
@@ -131,6 +146,7 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
       setStatus('Draft');
     }
     setError('');
+    setOpenSections(initialSections);
     updateNewsArticle.reset();
     createNewsArticle.reset();
   }, [article, isOpen]);
@@ -217,110 +233,123 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
           </div>
         </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Select label="Category" options={NEWS_CATEGORY_OPTIONS} placeholder="Select category" value={category} onChange={(e) => setCategory(e.target.value)} />
+        <CollapsibleSection
+          title="Media & URLs"
+          hint="Cover image and links"
+          isOpen={openSections.media}
+          onToggle={() => toggleSection('media')}
+        >
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <div className="flex flex-col gap-[26px]">
+                <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
+                  Cover Image
+                </label>
+                <FileUpload
+                  value={coverImage}
+                  onUpload={handleCoverFile}
+                  isUploading={upload.isPending}
+                  label="Upload Cover Image"
+                />
+              </div>
+            </div>
+            <div className="flex-1">
+              <Input label="Share URL" placeholder="https://..." value={shareUrl} onChange={(e) => setShareUrl(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Select label="Source" options={NEWS_SOURCE_OPTIONS} placeholder="Select source" value={source} onChange={(e) => setSource(e.target.value)} />
-          </div>
-        </div>
+        </CollapsibleSection>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Select label="Language" options={LANGUAGE_OPTIONS} value={language} onChange={(e) => setLanguage(e.target.value)} />
+        <CollapsibleSection
+          title="Content Details"
+          hint="Article information"
+          isOpen={openSections.content}
+          onToggle={() => toggleSection('content')}
+        >
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Select label="Category" options={NEWS_CATEGORY_OPTIONS} placeholder="Select category" value={category} onChange={(e) => setCategory(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Select label="Source" options={NEWS_SOURCE_OPTIONS} placeholder="Select source" value={source} onChange={(e) => setSource(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Input label="Author" placeholder="Author name" value={author} onChange={(e) => setAuthor(e.target.value)} />
-          </div>
-        </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input label="Editorial Team" placeholder="Editorial team name" value={editorialTeam} onChange={(e) => setEditorialTeam(e.target.value)} />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Select label="Language" options={LANGUAGE_OPTIONS} value={language} onChange={(e) => setLanguage(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Input label="Author" placeholder="Author name" value={author} onChange={(e) => setAuthor(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Input label="Organization" placeholder="Organization name" value={organization} onChange={(e) => setOrganization(e.target.value)} />
-          </div>
-        </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input label="MoC" placeholder="Ministry of Culture" value={moc} onChange={(e) => setMoc(e.target.value)} />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input label="Editorial Team" placeholder="Editorial team name" value={editorialTeam} onChange={(e) => setEditorialTeam(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Input label="Organization" placeholder="Organization name" value={organization} onChange={(e) => setOrganization(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Input label="City" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} />
-          </div>
-        </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Select label="Emirate" options={EMIRATES_OPTIONS} placeholder="Select emirate" value={emirate} onChange={(e) => setEmirate(e.target.value)} />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input label="MoC" placeholder="Ministry of Culture" value={moc} onChange={(e) => setMoc(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Input label="City" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <div className="flex flex-col gap-[26px]">
-              <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
-                Cover Image
-              </label>
-              <FileUpload
-                value={coverImage}
-                onUpload={handleCoverFile}
-                isUploading={upload.isPending}
-                label="Upload Cover Image"
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Select label="Emirate" options={EMIRATES_OPTIONS} placeholder="Select emirate" value={emirate} onChange={(e) => setEmirate(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Select label="Status" options={STATUS_OPTIONS} value={status} onChange={(e) => setStatus(e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <Textarea
+              label="Content"
+              required
+              placeholder="Enter article content"
+              rows={6}
+              className="h-[180px]"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+            />
+          </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input
+                label="Published Date (auto)"
+                type="date"
+                value={publishedDate}
+                onChange={(e) => setPublishedDate(e.target.value)}
+                disabled
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                label="Updated Date (auto)"
+                type="date"
+                value={updatedDate}
+                onChange={(e) => setUpdatedDate(e.target.value)}
+                disabled
               />
             </div>
           </div>
-        </div>
+        </CollapsibleSection>
 
-        <div>
-          <Textarea
-            label="Content"
-            required
-            placeholder="Enter article content"
-            rows={6}
-            className="h-[180px]"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-          />
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            {/* Published/updated dates are managed by the backend (set on first
-                publish and on every save) — not editable manually. */}
-            {/* Published/updated dates are backend-managed; shown read-only. */}
-            <Input
-              label="Published Date (auto)"
-              type="date"
-              value={publishedDate}
-              onChange={(e) => setPublishedDate(e.target.value)}
-              disabled
-            />
-          </div>
-          <div className="flex-1">
-            <Input
-              label="Updated Date (auto)"
-              type="date"
-              value={updatedDate}
-              onChange={(e) => setUpdatedDate(e.target.value)}
-              disabled
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input label="Share URL" placeholder="https://..." value={shareUrl} onChange={(e) => setShareUrl(e.target.value)} />
-          </div>
-          <div className="flex-1">
-            <Select label="Status" options={STATUS_OPTIONS} value={status} onChange={(e) => setStatus(e.target.value)} />
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-[16px]">
-          <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
-            Resources
-          </label>
+        <CollapsibleSection
+          title="Resources & References"
+          hint={`${resources.filter((r) => r.title || r.url || r.type).length} resources`}
+          isOpen={openSections.resources}
+          onToggle={() => toggleSection('resources')}
+        >
           <div className="flex flex-col gap-3">
             {resources.map((resource, i) => (
               <div key={i} className="flex items-center gap-3">
@@ -350,12 +379,14 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
               </Button>
             </div>
           </div>
-        </div>
+        </CollapsibleSection>
 
-        <div className="flex flex-col gap-[16px]">
-          <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
-            Display Options
-          </label>
+        <CollapsibleSection
+          title="Display Options"
+          hint="Toggle visibility"
+          isOpen={openSections.display}
+          onToggle={() => toggleSection('display')}
+        >
           <div className="grid grid-cols-2 gap-4">
             {TOGGLE_KEYS.map((key) => (
               <label key={key} className="flex items-center gap-3 cursor-pointer">
@@ -371,7 +402,7 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
               </label>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
       </div>
     </Modal>
   );

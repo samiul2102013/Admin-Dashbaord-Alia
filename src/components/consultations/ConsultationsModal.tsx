@@ -7,6 +7,7 @@ import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Button from '@/components/shared/Button';
 import Select from '@/components/shared/Select';
+import CollapsibleSection from '@/components/shared/CollapsibleSection';
 import {
   EMIRATES_OPTIONS,
   SESSION_TYPE_OPTIONS,
@@ -29,6 +30,16 @@ const MEETING_FORMAT_OPTIONS = [
   { value: 'online', label: 'Online' },
   { value: 'onsite', label: 'Onsite' },
 ];
+
+type ConsultationSectionKey = 'schedule' | 'pricing' | 'counselor' | 'content' | 'display';
+
+const initialSections: Record<ConsultationSectionKey, boolean> = {
+  schedule: false,
+  pricing: false,
+  counselor: false,
+  content: false,
+  display: false,
+};
 
 function splitLines(value: string) {
   return value
@@ -129,6 +140,7 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
   const [isBookable, setIsBookable] = useState(true);
   const [status, setStatus] = useState('Draft');
   const [error, setError] = useState('');
+  const [openSections, setOpenSections] = useState<Record<ConsultationSectionKey, boolean>>(initialSections);
 
   const coverImage = (consultation?.gallery && Array.isArray(consultation.gallery) && consultation.gallery[0]) || gallery;
 
@@ -214,6 +226,7 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
     }
 
     setError('');
+    setOpenSections(initialSections);
     createConsultation.reset();
     updateConsultation.reset();
     upload.reset();
@@ -226,6 +239,10 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
 
   const mutation = consultation ? updateConsultation : createConsultation;
   const isPending = mutation.isPending || upload.isPending;
+
+  function toggleSection(key: ConsultationSectionKey) {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   async function handleCoverFile(file: File) {
     setError('');
@@ -316,6 +333,7 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
       <div className="flex flex-col gap-8">
         {error && <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>}
 
+        {/* Titles stay visible at the top */}
         <div className="flex gap-8">
           <div className="flex-1">
             <Input label="Session Title" required placeholder="Session title (English)" value={sessionTitle} onChange={(e) => setSessionTitle(e.target.value)} />
@@ -325,153 +343,178 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
           </div>
         </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input label="Category" placeholder="e.g. Education" value={category} onChange={(e) => setCategory(e.target.value)} />
+        <CollapsibleSection title="Schedule & Format" hint="Date, time, format" isOpen={openSections.schedule} onToggle={() => toggleSection('schedule')}>
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input label="Category" placeholder="e.g. Education" value={category} onChange={(e) => setCategory(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Select label="Session Type" options={SESSION_TYPE_OPTIONS} placeholder="Select type" value={sessionType} onChange={(e) => setSessionType(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Select label="Session Type" options={SESSION_TYPE_OPTIONS} placeholder="Select type" value={sessionType} onChange={(e) => setSessionType(e.target.value)} />
-          </div>
-        </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Select label="Emirates" options={EMIRATES_OPTIONS} placeholder="Select emirate" value={emirates} onChange={(e) => setEmirates(e.target.value)} />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Select label="Emirates" options={EMIRATES_OPTIONS} placeholder="Select emirate" value={emirates} onChange={(e) => setEmirates(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Select label="Marital Stage" options={MARITAL_STAGE_OPTIONS} placeholder="Select stage" value={maritalStage} onChange={(e) => setMaritalStage(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Select label="Marital Stage" options={MARITAL_STAGE_OPTIONS} placeholder="Select stage" value={maritalStage} onChange={(e) => setMaritalStage(e.target.value)} />
-          </div>
-        </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Select label="Language" options={LANGUAGE_OPTIONS} placeholder="Select language" value={language} onChange={(e) => setLanguage(e.target.value)} />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Select label="Language" options={LANGUAGE_OPTIONS} placeholder="Select language" value={language} onChange={(e) => setLanguage(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Input label="Session Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Input label="Session Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
-        </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            {/* Backend-managed: stamped on first publish; shown read-only. */}
-            <Input label="Published Date (auto)" type="date" value={publishedDate} onChange={(e) => setPublishedDate(e.target.value)} disabled />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              {/* Backend-managed: stamped on first publish; shown read-only. */}
+              <Input label="Published Date (auto)" type="date" value={publishedDate} onChange={(e) => setPublishedDate(e.target.value)} disabled />
+            </div>
+            <div className="flex-1">
+              <Input label="Duration" placeholder="e.g. 2 hours" value={duration} onChange={(e) => setDuration(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Input label="Duration" placeholder="e.g. 2 hours" value={duration} onChange={(e) => setDuration(e.target.value)} />
-          </div>
-        </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input label="Start Time" placeholder="HH:MM" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input label="Start Time" placeholder="HH:MM" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Input label="End Time" placeholder="HH:MM" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Input label="End Time" placeholder="HH:MM" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-          </div>
-        </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input label="Time Zone" placeholder="e.g. GST (UTC+4)" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input label="Time Zone" placeholder="e.g. GST (UTC+4)" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Select label="Meeting Format" options={MEETING_FORMAT_OPTIONS} value={meetingFormat} onChange={(e) => setMeetingFormat(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Select label="Meeting Format" options={MEETING_FORMAT_OPTIONS} value={meetingFormat} onChange={(e) => setMeetingFormat(e.target.value)} />
-          </div>
-        </div>
 
-        <div>
-          <Input label="Session Link" placeholder="https://..." value={sessionLink} onChange={(e) => setSessionLink(e.target.value)} />
-        </div>
+          <div>
+            <Input label="Session Link" placeholder="https://..." value={sessionLink} onChange={(e) => setSessionLink(e.target.value)} />
+          </div>
 
-        <div className="flex gap-8 items-end">
-          <div className="flex-1 flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 h-12">
-            <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} className="h-4 w-4 accent-[#781E36]" />
-            <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Free session</span>
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input label="Max Participants" type="number" placeholder="e.g. 20" value={maxParticipants} onChange={(e) => setMaxParticipants(e.target.value)} />
+            </div>
+            <div className="flex-1" />
           </div>
-          <div className="flex-1">
-            <Input label="Fee (AED)" type="number" value={fee} onChange={(e) => setFee(e.target.value)} disabled={isFree} />
-          </div>
-        </div>
+        </CollapsibleSection>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input label="Processing Fee (AED)" type="number" value={processingFee} onChange={(e) => setProcessingFee(e.target.value)} />
+        <CollapsibleSection title="Pricing" hint="Free or paid" isOpen={openSections.pricing} onToggle={() => toggleSection('pricing')}>
+          <div className="flex gap-8 items-end">
+            <div className="flex-1 flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 h-12">
+              <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} className="h-4 w-4 accent-[#781E36]" />
+              <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Free session</span>
+            </div>
+            <div className="flex-1">
+              <Input label="Fee (AED)" type="number" value={fee} onChange={(e) => setFee(e.target.value)} disabled={isFree} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Input label="Discount (AED)" type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} />
-          </div>
-        </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input label="Max Participants" type="number" placeholder="e.g. 20" value={maxParticipants} onChange={(e) => setMaxParticipants(e.target.value)} />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input label="Processing Fee (AED)" type="number" value={processingFee} onChange={(e) => setProcessingFee(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Input label="Discount (AED)" type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
+
+          <div>
             <Input label="Booking Notice" placeholder="Optional notice shown at booking" value={bookingNotice} onChange={(e) => setBookingNotice(e.target.value)} />
           </div>
-        </div>
+        </CollapsibleSection>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <FileUpload value={coverImage} label="Upload Session Image" isUploading={upload.isPending} onUpload={handleCoverFile} />
-          </div>
-          <div className="flex-1 flex flex-col gap-4">
-            <div>
-              <Input label="Counselor Name" placeholder="Enter counselor name" value={counselor} onChange={(e) => setCounselor(e.target.value)} />
+        <CollapsibleSection title="Counselor" hint="Session host" isOpen={openSections.counselor} onToggle={() => toggleSection('counselor')}>
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <FileUpload value={coverImage} label="Upload Session Image" isUploading={upload.isPending} onUpload={handleCoverFile} />
             </div>
-            <div>
-              <Input label="Counselor Title" placeholder="e.g. Family Counselor" value={counselorTitle} onChange={(e) => setCounselorTitle(e.target.value)} />
+            <div className="flex-1 flex flex-col gap-4">
+              <div>
+                <Input label="Counselor Name" placeholder="Enter counselor name" value={counselor} onChange={(e) => setCounselor(e.target.value)} />
+              </div>
+              <div>
+                <Input label="Counselor Title" placeholder="e.g. Family Counselor" value={counselorTitle} onChange={(e) => setCounselorTitle(e.target.value)} />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <FileUpload value={counselorPhoto} label="Upload Counselor Photo" isUploading={upload.isPending} onUpload={async (file) => {
-              try {
-                const res = await upload.mutateAsync(file);
-                setCounselorPhoto(res.url);
-              } catch (e) {
-                setError(`Counselor photo upload failed: ${getErrorMessage(e)}`);
-              }
-            }} />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <FileUpload value={counselorPhoto} label="Upload Counselor Photo" isUploading={upload.isPending} onUpload={async (file) => {
+                try {
+                  const res = await upload.mutateAsync(file);
+                  setCounselorPhoto(res.url);
+                } catch (e) {
+                  setError(`Counselor photo upload failed: ${getErrorMessage(e)}`);
+                }
+              }} />
+            </div>
+            <div className="flex-1">
+              <Textarea label="Counselor Bio" placeholder="Counselor biography" rows={5} className="h-full" value={counselorBio} onChange={(e) => setCounselorBio(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Textarea label="Counselor Bio" placeholder="Counselor biography" rows={5} className="h-full" value={counselorBio} onChange={(e) => setCounselorBio(e.target.value)} />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Content" hint="Description and objectives" isOpen={openSections.content} onToggle={() => toggleSection('content')}>
+          <div>
+            <Textarea label="Description" placeholder="Enter session description" rows={5} className="h-[149px]" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
-        </div>
 
-        <div>
-          <Textarea label="Description" placeholder="Enter session description" rows={5} className="h-[149px]" value={description} onChange={(e) => setDescription(e.target.value)} />
-        </div>
-
-        <div>
-          <Textarea label="Objectives" placeholder="One objective per line" rows={4} value={objectives} onChange={(e) => setObjectives(e.target.value)} />
-        </div>
-
-        <div>
-          <Textarea label="What You Will Learn" placeholder="One item per line" rows={4} value={whatYouWillLearn} onChange={(e) => setWhatYouWillLearn(e.target.value)} />
-        </div>
-
-        <div>
-          <Textarea label="Who Should Attend" placeholder="One item per line" rows={4} value={whoShouldAttend} onChange={(e) => setWhoShouldAttend(e.target.value)} />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          {toggleRow(showDoctor, setShowDoctor, 'Show Doctor')}
-          {toggleRow(showLearnMore, setShowLearnMore, 'Show Learn More')}
-          {toggleRow(showGallery, setShowGallery, 'Show Gallery')}
-          {toggleRow(showSchedule, setShowSchedule, 'Show Schedule')}
-          {toggleRow(showBooking, setShowBooking, 'Show Booking')}
-          {toggleRow(isBookable, setIsBookable, 'Bookable')}
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Select label="Status" options={STATUS_OPTIONS} value={status} onChange={(e) => setStatus(e.target.value)} />
+          <div>
+            <Textarea label="Objectives" placeholder="One objective per line" rows={4} value={objectives} onChange={(e) => setObjectives(e.target.value)} />
           </div>
-        </div>
+
+          <div>
+            <Textarea label="What You Will Learn" placeholder="One item per line" rows={4} value={whatYouWillLearn} onChange={(e) => setWhatYouWillLearn(e.target.value)} />
+          </div>
+
+          <div>
+            <Textarea label="Who Should Attend" placeholder="One item per line" rows={4} value={whoShouldAttend} onChange={(e) => setWhoShouldAttend(e.target.value)} />
+          </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input label="Gallery" placeholder="Image URL" value={gallery} onChange={(e) => setGallery(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Textarea label="Schedule" placeholder="Schedule description" rows={3} value={schedule} onChange={(e) => setSchedule(e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            {toggleRow(isBookable, setIsBookable, 'Bookable')}
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Display Options" hint="Toggle visibility" isOpen={openSections.display} onToggle={() => toggleSection('display')}>
+          <div className="grid grid-cols-2 gap-3">
+            {toggleRow(showDoctor, setShowDoctor, 'Show Doctor')}
+            {toggleRow(showLearnMore, setShowLearnMore, 'Show Learn More')}
+            {toggleRow(showGallery, setShowGallery, 'Show Gallery')}
+            {toggleRow(showSchedule, setShowSchedule, 'Show Schedule')}
+            {toggleRow(showBooking, setShowBooking, 'Show Booking')}
+          </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Select label="Status" options={STATUS_OPTIONS} value={status} onChange={(e) => setStatus(e.target.value)} />
+            </div>
+            <div className="flex-1" />
+          </div>
+        </CollapsibleSection>
       </div>
     </Modal>
   );

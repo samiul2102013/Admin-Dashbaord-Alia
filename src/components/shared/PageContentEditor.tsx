@@ -593,6 +593,7 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
         published: data.published,
         topics: data.topics, contributors: data.contributors, faqs: data.faqs,
         sectionVisibility: data.sectionVisibility,
+        shortsCta: data.shortsCta,
         initiativesTopics: data.initiativesTopics,
         initiativesContributors: data.initiativesContributors,
         initiativesFaqs: data.initiativesFaqs,

@@ -16,6 +16,24 @@ import type { Consultation } from '@/types/consultations';
 
 const columns: Column<Consultation>[] = [
   {
+    header: 'Cover',
+    accessor: (row) => {
+      const coverUrl = (Array.isArray(row.gallery) && row.gallery[0]) || row.counselorPhoto;
+      return coverUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={coverUrl}
+          alt={row.sessionTitle || 'Cover'}
+          className="h-[54px] w-[96px] rounded-md object-cover bg-secondary/20"
+        />
+      ) : (
+        <div className="flex h-[54px] w-[96px] items-center justify-center rounded-md bg-secondary/20">
+          <span className="text-[10px] text-text-secondary font-[family-name:var(--font-poppins)]">No cover</span>
+        </div>
+      );
+    },
+  },
+  {
     header: 'Session Title',
     accessor: 'sessionTitle',
     className: 'font-semibold text-black max-w-[250px] truncate',

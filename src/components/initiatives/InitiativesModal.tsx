@@ -7,6 +7,7 @@ import Textarea from '@/components/shared/Textarea';
 import Select from '@/components/shared/Select';
 import Button from '@/components/shared/Button';
 import ChunkedUploader from '@/components/shared/ChunkedUploader';
+import CollapsibleSection from '@/components/shared/CollapsibleSection';
 import { EMIRATES_OPTIONS, STATUS_OPTIONS } from '@/lib/constants';
 import { getErrorMessage } from '@/lib/api-client';
 import { useCreateInitiative, useUpdateInitiative } from '@/hooks/useInitiatives';
@@ -43,6 +44,16 @@ function emptySupportOffered(): Record<SupportOfferedKey, boolean> {
     pre_marital_preparation: false,
   };
 }
+
+type InitiativeSectionKey = 'classification' | 'media' | 'about' | 'benefits' | 'display';
+
+const initialSections: Record<InitiativeSectionKey, boolean> = {
+  classification: false,
+  media: false,
+  about: false,
+  benefits: false,
+  display: false,
+};
 
 function splitLines(value: string) {
   return value
@@ -118,6 +129,11 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
   const [isListed, setIsListed] = useState(true);
   const [status, setStatus] = useState('Draft');
   const [error, setError] = useState('');
+  const [openSections, setOpenSections] = useState<Record<InitiativeSectionKey, boolean>>(initialSections);
+
+  function toggleSection(key: InitiativeSectionKey) {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   useEffect(() => {
     if (initiative) {
@@ -177,6 +193,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
     }
 
     setError('');
+    setOpenSections(initialSections);
     createInitiative.reset();
     updateInitiative.reset();
   }, [initiative, isOpen]);
@@ -266,6 +283,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       <div className="flex flex-col gap-8">
         {error && <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>}
 
+        {/* Title + Subtitle always visible at top */}
         <div className="flex gap-8">
           <div className="flex-1">
             <Input
@@ -305,263 +323,297 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
           </div>
         </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Select
-              label="Category"
-              required
-              options={categoryOptions}
-              placeholder="Select category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <Select
-              label="Emirates"
-              options={EMIRATES_OPTIONS}
-              placeholder="Select emirate"
-              value={emirates}
-              onChange={(e) => setEmirates(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input
-              label="Start Date"
-              required
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <Input
-              label="End Date"
-              required
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input
-              label="Badge"
-              placeholder="Featured badge label"
-              value={badge}
-              onChange={(e) => setBadge(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <Select
-              label="Status"
-              options={STATUS_OPTIONS}
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input
-              label="Official Website URL"
-              placeholder="https://..."
-              value={officialWebsiteUrl}
-              onChange={(e) => setOfficialWebsiteUrl(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <Input
-              label="Share URL"
-              placeholder="https://..."
-              value={shareUrl}
-              onChange={(e) => setShareUrl(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <FileUpload
-              value={coverImage}
-              label="Upload Cover Image"
-              onChange={setCoverImage}
-            />
-          </div>
-          <div className="flex-1 flex flex-col justify-between gap-4">
-            <div className="flex items-center justify-between rounded-[10px] border border-secondary/40 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold font-[family-name:var(--font-poppins)] text-text-primary">
-                  Featured initiative
-                </p>
-                <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
-                  Show this initiative as the highlighted card on the website.
-                </p>
-              </div>
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  checked={isFeatured}
-                  onChange={(e) => setIsFeatured(e.target.checked)}
-                  className="peer sr-only"
-                />
-                <span className="h-6 w-11 rounded-full bg-secondary/30 transition-colors peer-checked:bg-primary" />
-                <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
-              </label>
+        {/* Classification */}
+        <CollapsibleSection
+          title="Classification"
+          hint="Category, emirate, dates"
+          isOpen={openSections.classification}
+          onToggle={() => toggleSection('classification')}
+        >
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Select
+                label="Category"
+                required
+                options={categoryOptions}
+                placeholder="Select category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              />
             </div>
-
-            <div className="flex items-center justify-between rounded-[10px] border border-secondary/40 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold font-[family-name:var(--font-poppins)] text-text-primary">
-                  Show on Initiatives listing
-                </p>
-                <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
-                  When off, this initiative only appears under its emirate.
-                </p>
-              </div>
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  checked={isListed}
-                  onChange={(e) => setIsListed(e.target.checked)}
-                  className="peer sr-only"
-                />
-                <span className="h-6 w-11 rounded-full bg-secondary/30 transition-colors peer-checked:bg-primary" />
-                <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
-              </label>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <label className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showAbout}
-                  onChange={(e) => setShowAbout(e.target.checked)}
-                  className="h-4 w-4 accent-[#781E36]"
-                />
-                <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Show About</span>
-              </label>
-              <label className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showSupportOffered}
-                  onChange={(e) => setShowSupportOffered(e.target.checked)}
-                  className="h-4 w-4 accent-[#781E36]"
-                />
-                <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Show Support</span>
-              </label>
-              <label className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showBenefits}
-                  onChange={(e) => setShowBenefits(e.target.checked)}
-                  className="h-4 w-4 accent-[#781E36]"
-                />
-                <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Show Benefits</span>
-              </label>
-              <label className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showApplicationForm}
-                  onChange={(e) => setShowApplicationForm(e.target.checked)}
-                  className="h-4 w-4 accent-[#781E36]"
-                />
-                <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Show Application Form</span>
-              </label>
+            <div className="flex-1">
+              <Select
+                label="Emirates"
+                options={EMIRATES_OPTIONS}
+                placeholder="Select emirate"
+                value={emirates}
+                onChange={(e) => setEmirates(e.target.value)}
+              />
             </div>
           </div>
-        </div>
 
-        <div>
-          <Textarea
-            label="Description"
-            placeholder="Enter initiative description"
-            rows={5}
-            className="h-[149px]"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <Textarea
-            label="Purpose"
-            placeholder="Enter initiative purpose"
-            rows={4}
-            value={purpose}
-            onChange={(e) => setPurpose(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <Textarea
-            label="Objectives"
-            placeholder="One objective per line"
-            rows={4}
-            value={objectives}
-            onChange={(e) => setObjectives(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <Textarea
-            label="Basic Information"
-            placeholder="One item per line"
-            rows={4}
-            value={basicInformation}
-            onChange={(e) => setBasicInformation(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <Textarea
-            label="Benefits"
-            placeholder="One benefit per line"
-            rows={4}
-            value={benefits}
-            onChange={(e) => setBenefits(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <Textarea
-            label="Contact"
-            placeholder="One contact item per line"
-            rows={4}
-            value={contact}
-            onChange={(e) => setContact(e.target.value)}
-          />
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
-            Support Offered
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {SUPPORT_OPTIONS.map((option) => (
-              <label key={option.key} className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(supportOffered[option.key])}
-                  onChange={(e) =>
-                    setSupportOffered({
-                      ...supportOffered,
-                      [option.key]: e.target.checked,
-                    })
-                  }
-                  className="h-4 w-4 accent-[#781E36]"
-                />
-                <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">{option.label}</span>
-              </label>
-            ))}
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input
+                label="Start Date"
+                required
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                label="End Date"
+                required
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input
+                label="Badge"
+                placeholder="Featured badge label"
+                value={badge}
+                onChange={(e) => setBadge(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <Select
+                label="Status"
+                options={STATUS_OPTIONS}
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              />
+            </div>
+          </div>
+        </CollapsibleSection>
+
+        {/* Media & URLs */}
+        <CollapsibleSection
+          title="Media & URLs"
+          hint="Cover image and links"
+          isOpen={openSections.media}
+          onToggle={() => toggleSection('media')}
+        >
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <FileUpload
+                value={coverImage}
+                label="Upload Cover Image"
+                onChange={setCoverImage}
+              />
+            </div>
+            <div className="flex-1 flex flex-col justify-end gap-4">
+              <Input
+                label="Official Website URL"
+                placeholder="https://..."
+                value={officialWebsiteUrl}
+                onChange={(e) => setOfficialWebsiteUrl(e.target.value)}
+              />
+              <Input
+                label="Share URL"
+                placeholder="https://..."
+                value={shareUrl}
+                onChange={(e) => setShareUrl(e.target.value)}
+              />
+            </div>
+          </div>
+        </CollapsibleSection>
+
+        {/* About */}
+        <CollapsibleSection
+          title="About"
+          hint="Description and objectives"
+          isOpen={openSections.about}
+          onToggle={() => toggleSection('about')}
+        >
+          <div>
+            <Textarea
+              label="Description"
+              placeholder="Enter initiative description"
+              rows={5}
+              className="h-[149px]"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Textarea
+              label="Purpose"
+              placeholder="Enter initiative purpose"
+              rows={4}
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Textarea
+              label="Objectives"
+              placeholder="One objective per line"
+              rows={4}
+              value={objectives}
+              onChange={(e) => setObjectives(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Textarea
+              label="Basic Information"
+              placeholder="One item per line"
+              rows={4}
+              value={basicInformation}
+              onChange={(e) => setBasicInformation(e.target.value)}
+            />
+          </div>
+        </CollapsibleSection>
+
+        {/* Benefits & Support */}
+        <CollapsibleSection
+          title="Benefits & Support"
+          hint="Support types and benefits"
+          isOpen={openSections.benefits}
+          onToggle={() => toggleSection('benefits')}
+        >
+          <div className="flex flex-col gap-4">
+            <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
+              Support Offered
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {SUPPORT_OPTIONS.map((option) => (
+                <label key={option.key} className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(supportOffered[option.key])}
+                    onChange={(e) =>
+                      setSupportOffered({
+                        ...supportOffered,
+                        [option.key]: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 accent-[#781E36]"
+                  />
+                  <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Textarea
+              label="Benefits"
+              placeholder="One benefit per line"
+              rows={4}
+              value={benefits}
+              onChange={(e) => setBenefits(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Textarea
+              label="Contact"
+              placeholder="One contact item per line"
+              rows={4}
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+            />
+          </div>
+        </CollapsibleSection>
+
+        {/* Display Options */}
+        <CollapsibleSection
+          title="Display Options"
+          hint="Toggle visibility"
+          isOpen={openSections.display}
+          onToggle={() => toggleSection('display')}
+        >
+          <div className="flex items-center justify-between rounded-[10px] border border-secondary/40 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold font-[family-name:var(--font-poppins)] text-text-primary">
+                Featured initiative
+              </p>
+              <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+                Show this initiative as the highlighted card on the website.
+              </p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={isFeatured}
+                onChange={(e) => setIsFeatured(e.target.checked)}
+                className="peer sr-only"
+              />
+              <span className="h-6 w-11 rounded-full bg-secondary/30 transition-colors peer-checked:bg-primary" />
+              <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between rounded-[10px] border border-secondary/40 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold font-[family-name:var(--font-poppins)] text-text-primary">
+                Show on Initiatives listing
+              </p>
+              <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+                When off, this initiative only appears under its emirate.
+              </p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={isListed}
+                onChange={(e) => setIsListed(e.target.checked)}
+                className="peer sr-only"
+              />
+              <span className="h-6 w-11 rounded-full bg-secondary/30 transition-colors peer-checked:bg-primary" />
+              <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showAbout}
+                onChange={(e) => setShowAbout(e.target.checked)}
+                className="h-4 w-4 accent-[#781E36]"
+              />
+              <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Show About</span>
+            </label>
+            <label className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showSupportOffered}
+                onChange={(e) => setShowSupportOffered(e.target.checked)}
+                className="h-4 w-4 accent-[#781E36]"
+              />
+              <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Show Support</span>
+            </label>
+            <label className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showBenefits}
+                onChange={(e) => setShowBenefits(e.target.checked)}
+                className="h-4 w-4 accent-[#781E36]"
+              />
+              <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Show Benefits</span>
+            </label>
+            <label className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showApplicationForm}
+                onChange={(e) => setShowApplicationForm(e.target.checked)}
+                className="h-4 w-4 accent-[#781E36]"
+              />
+              <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Show Application Form</span>
+            </label>
+          </div>
+        </CollapsibleSection>
       </div>
     </Modal>
   );
