@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, EyeOff, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import CollapsibleSection from '@/components/shared/CollapsibleSection';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
@@ -12,7 +12,6 @@ import { getHomepageContent, saveHomepageContent, homepageKeys } from '@/lib/ser
 import { useUpload } from '@/hooks/useMeta';
 import {
   DEFAULT_SECTION_VISIBILITY,
-  SECTION_VISIBILITY_LABELS,
   type HomepageContent,
   type FloatingCard,
   type SectionVisibility,
@@ -206,10 +205,6 @@ export default function HomepageContentEditor() {
 
   const isPending = saveMutation.isPending;
 
-  const sectionHint = useCallback((key: string) => {
-    return visibility[key] ? 'Visible' : 'Hidden';
-  }, [visibility]);
-
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -336,15 +331,12 @@ export default function HomepageContentEditor() {
       {/* Stats Section */}
       <CollapsibleSection
         title="Stats Section"
-        hint={sectionHint('stats')}
+        hint="Stats shown on the homepage"
+        visible={visibility.stats}
+        onToggleVisible={() => toggleVisibility('stats')}
         isOpen={!collapsed.has('stats')}
         onToggle={() => toggleCollapse('stats')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_VISIBILITY_LABELS.stats}
-          visible={visibility.stats}
-          onToggle={() => toggleVisibility('stats')}
-        />
         <div>
           <div className="flex items-center justify-between mb-3">
             <h5 className="text-xs font-bold text-text-secondary uppercase font-[family-name:var(--font-manrope)]">Stats</h5>
@@ -383,15 +375,12 @@ export default function HomepageContentEditor() {
       {/* Shorts Section Header */}
       <CollapsibleSection
         title="Shorts Section Header"
-        hint={sectionHint('shorts')}
+        hint="Shorts section heading & CTA"
+        visible={visibility.shorts}
+        onToggleVisible={() => toggleVisibility('shorts')}
         isOpen={!collapsed.has('shorts')}
         onToggle={() => toggleCollapse('shorts')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_VISIBILITY_LABELS.shorts}
-          visible={visibility.shorts}
-          onToggle={() => toggleVisibility('shorts')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.shortsTitle} onChange={(e) => setField({ shortsTitle: e.target.value })} />
           <Input label="Title (AR)" value={formData.shortsTitleAr} onChange={(e) => setField({ shortsTitleAr: e.target.value })} dir="rtl" />
@@ -407,15 +396,12 @@ export default function HomepageContentEditor() {
       {/* News Section Header */}
       <CollapsibleSection
         title="News Section Header"
-        hint={sectionHint('news')}
+        hint="News section heading & CTA"
+        visible={visibility.news}
+        onToggleVisible={() => toggleVisibility('news')}
         isOpen={!collapsed.has('news')}
         onToggle={() => toggleCollapse('news')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_VISIBILITY_LABELS.news}
-          visible={visibility.news}
-          onToggle={() => toggleVisibility('news')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.newsTitle} onChange={(e) => setField({ newsTitle: e.target.value })} />
           <Input label="Title (AR)" value={formData.newsTitleAr} onChange={(e) => setField({ newsTitleAr: e.target.value })} dir="rtl" />
@@ -429,15 +415,12 @@ export default function HomepageContentEditor() {
       {/* Initiatives Section Header */}
       <CollapsibleSection
         title="Initiatives Section Header"
-        hint={sectionHint('initiatives')}
+        hint="Initiatives section heading & CTA"
+        visible={visibility.initiatives}
+        onToggleVisible={() => toggleVisibility('initiatives')}
         isOpen={!collapsed.has('initiatives')}
         onToggle={() => toggleCollapse('initiatives')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_VISIBILITY_LABELS.initiatives}
-          visible={visibility.initiatives}
-          onToggle={() => toggleVisibility('initiatives')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.initiativesTitle} onChange={(e) => setField({ initiativesTitle: e.target.value })} />
           <Input label="Title (AR)" value={formData.initiativesTitleAr} onChange={(e) => setField({ initiativesTitleAr: e.target.value })} dir="rtl" />
@@ -451,15 +434,12 @@ export default function HomepageContentEditor() {
       {/* Consultations Section Header */}
       <CollapsibleSection
         title="Consultations Section Header"
-        hint={sectionHint('consultations')}
+        hint="Consultations section heading & CTA"
+        visible={visibility.consultations}
+        onToggleVisible={() => toggleVisibility('consultations')}
         isOpen={!collapsed.has('consultations')}
         onToggle={() => toggleCollapse('consultations')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_VISIBILITY_LABELS.consultations}
-          visible={visibility.consultations}
-          onToggle={() => toggleVisibility('consultations')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.consultationsTitle} onChange={(e) => setField({ consultationsTitle: e.target.value })} />
           <Input label="Title (AR)" value={formData.consultationsTitleAr} onChange={(e) => setField({ consultationsTitleAr: e.target.value })} dir="rtl" />
@@ -477,15 +457,12 @@ export default function HomepageContentEditor() {
       {/* Emirates Section Header */}
       <CollapsibleSection
         title="Emirates Section Header"
-        hint={sectionHint('emirates')}
+        hint="Emirates section heading & CTA"
+        visible={visibility.emirates}
+        onToggleVisible={() => toggleVisibility('emirates')}
         isOpen={!collapsed.has('emirates')}
         onToggle={() => toggleCollapse('emirates')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_VISIBILITY_LABELS.emirates}
-          visible={visibility.emirates}
-          onToggle={() => toggleVisibility('emirates')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.emiratesTitle} onChange={(e) => setField({ emiratesTitle: e.target.value })} />
           <Input label="Title (AR)" value={formData.emiratesTitleAr} onChange={(e) => setField({ emiratesTitleAr: e.target.value })} dir="rtl" />
@@ -503,15 +480,12 @@ export default function HomepageContentEditor() {
       {/* CTA Section */}
       <CollapsibleSection
         title="CTA Section"
-        hint={sectionHint('cta')}
+        hint="CTA banner at the bottom"
+        visible={visibility.cta}
+        onToggleVisible={() => toggleVisibility('cta')}
         isOpen={!collapsed.has('cta')}
         onToggle={() => toggleCollapse('cta')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_VISIBILITY_LABELS.cta}
-          visible={visibility.cta}
-          onToggle={() => toggleVisibility('cta')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.ctaTitle} onChange={(e) => setField({ ctaTitle: e.target.value })} />
           <Input label="Title (AR)" value={formData.ctaTitleAr} onChange={(e) => setField({ ctaTitleAr: e.target.value })} dir="rtl" />
@@ -540,25 +514,6 @@ export default function HomepageContentEditor() {
         </Button>
       </div>
     </div>
-  );
-}
-
-function SectionVisibilityToggle({ label, visible, onToggle }: { label: string; visible: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-secondary/30 bg-surface/50 hover:bg-secondary/10 transition-colors cursor-pointer self-start"
-    >
-      {visible ? (
-        <Eye size={16} className="text-primary" />
-      ) : (
-        <EyeOff size={16} className="text-text-secondary" />
-      )}
-      <span className="text-sm font-[family-name:var(--font-poppins)]">
-        {label}
-      </span>
-    </button>
   );
 }
 

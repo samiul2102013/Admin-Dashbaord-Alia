@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, EyeOff, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import CollapsibleSection from '@/components/shared/CollapsibleSection';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
@@ -159,10 +159,6 @@ export default function AboutContentEditor() {
 
   const isPending = saveMutation.isPending;
 
-  const sectionHint = useCallback((key: string) => {
-    return visibility[key] ? 'Visible' : 'Hidden';
-  }, [visibility]);
-
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -246,15 +242,12 @@ export default function AboutContentEditor() {
       {/* Our Story */}
       <CollapsibleSection
         title={SECTION_LABELS.ourStory}
-        hint={sectionHint('ourStory')}
+        hint="Our story heading & text"
+        visible={visibility.ourStory}
+        onToggleVisible={() => toggleVisibility('ourStory')}
         isOpen={!collapsed.has('ourStory')}
         onToggle={() => toggleCollapse('ourStory')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_LABELS.ourStory}
-          visible={visibility.ourStory}
-          onToggle={() => toggleVisibility('ourStory')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.ourStory} onChange={(e) => setField({ ourStory: e.target.value })} />
           <Input label="Heading (AR)" value={formData.ourStoryAr} onChange={(e) => setField({ ourStoryAr: e.target.value })} dir="rtl" />
@@ -266,15 +259,12 @@ export default function AboutContentEditor() {
       {/* Our Mission */}
       <CollapsibleSection
         title={SECTION_LABELS.ourMission}
-        hint={sectionHint('ourMission')}
+        hint="Our mission heading & text"
+        visible={visibility.ourMission}
+        onToggleVisible={() => toggleVisibility('ourMission')}
         isOpen={!collapsed.has('ourMission')}
         onToggle={() => toggleCollapse('ourMission')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_LABELS.ourMission}
-          visible={visibility.ourMission}
-          onToggle={() => toggleVisibility('ourMission')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.ourMission} onChange={(e) => setField({ ourMission: e.target.value })} />
           <Input label="Heading (AR)" value={formData.ourMissionAr} onChange={(e) => setField({ ourMissionAr: e.target.value })} dir="rtl" />
@@ -286,15 +276,12 @@ export default function AboutContentEditor() {
       {/* Our Vision */}
       <CollapsibleSection
         title={SECTION_LABELS.ourVision}
-        hint={sectionHint('ourVision')}
+        hint="Our vision heading & text"
+        visible={visibility.ourVision}
+        onToggleVisible={() => toggleVisibility('ourVision')}
         isOpen={!collapsed.has('ourVision')}
         onToggle={() => toggleCollapse('ourVision')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_LABELS.ourVision}
-          visible={visibility.ourVision}
-          onToggle={() => toggleVisibility('ourVision')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.ourVision} onChange={(e) => setField({ ourVision: e.target.value })} />
           <Input label="Heading (AR)" value={formData.ourVisionAr} onChange={(e) => setField({ ourVisionAr: e.target.value })} dir="rtl" />
@@ -306,15 +293,12 @@ export default function AboutContentEditor() {
       {/* Our Objective */}
       <CollapsibleSection
         title={SECTION_LABELS.ourObjective}
-        hint={sectionHint('ourObjective')}
+        hint="Our objective heading, text & objective cards"
+        visible={visibility.ourObjective}
+        onToggleVisible={() => toggleVisibility('ourObjective')}
         isOpen={!collapsed.has('ourObjective')}
         onToggle={() => toggleCollapse('ourObjective')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_LABELS.ourObjective}
-          visible={visibility.ourObjective}
-          onToggle={() => toggleVisibility('ourObjective')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.ourObjective} onChange={(e) => setField({ ourObjective: e.target.value })} />
           <Input label="Heading (AR)" value={formData.ourObjectiveAr} onChange={(e) => setField({ ourObjectiveAr: e.target.value })} dir="rtl" />
@@ -358,15 +342,12 @@ export default function AboutContentEditor() {
       {/* What We Offer */}
       <CollapsibleSection
         title={SECTION_LABELS.whatWeOffer}
-        hint={sectionHint('whatWeOffer')}
+        hint="What we offer heading, text & offering cards"
+        visible={visibility.whatWeOffer}
+        onToggleVisible={() => toggleVisibility('whatWeOffer')}
         isOpen={!collapsed.has('whatWeOffer')}
         onToggle={() => toggleCollapse('whatWeOffer')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_LABELS.whatWeOffer}
-          visible={visibility.whatWeOffer}
-          onToggle={() => toggleVisibility('whatWeOffer')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.whatWeOffer} onChange={(e) => setField({ whatWeOffer: e.target.value })} />
           <Input label="Heading (AR)" value={formData.whatWeOfferAr} onChange={(e) => setField({ whatWeOfferAr: e.target.value })} dir="rtl" />
@@ -410,15 +391,12 @@ export default function AboutContentEditor() {
       {/* Our Impact */}
       <CollapsibleSection
         title={SECTION_LABELS.ourImpact}
-        hint={sectionHint('ourImpact')}
+        hint="Our impact heading, text & stats"
+        visible={visibility.ourImpact}
+        onToggleVisible={() => toggleVisibility('ourImpact')}
         isOpen={!collapsed.has('ourImpact')}
         onToggle={() => toggleCollapse('ourImpact')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_LABELS.ourImpact}
-          visible={visibility.ourImpact}
-          onToggle={() => toggleVisibility('ourImpact')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.ourImpact} onChange={(e) => setField({ ourImpact: e.target.value })} />
           <Input label="Heading (AR)" value={formData.ourImpactAr} onChange={(e) => setField({ ourImpactAr: e.target.value })} dir="rtl" />
@@ -462,15 +440,12 @@ export default function AboutContentEditor() {
       {/* Why Choose */}
       <CollapsibleSection
         title={SECTION_LABELS.whyChoose}
-        hint={sectionHint('whyChoose')}
+        hint="Why choose heading, text & value cards"
+        visible={visibility.whyChoose}
+        onToggleVisible={() => toggleVisibility('whyChoose')}
         isOpen={!collapsed.has('whyChoose')}
         onToggle={() => toggleCollapse('whyChoose')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_LABELS.whyChoose}
-          visible={visibility.whyChoose}
-          onToggle={() => toggleVisibility('whyChoose')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.whyChoose} onChange={(e) => setField({ whyChoose: e.target.value })} />
           <Input label="Heading (AR)" value={formData.whyChooseAr} onChange={(e) => setField({ whyChooseAr: e.target.value })} dir="rtl" />
@@ -514,15 +489,12 @@ export default function AboutContentEditor() {
       {/* Core Values */}
       <CollapsibleSection
         title={SECTION_LABELS.coreValues}
-        hint={sectionHint('coreValues')}
+        hint="Core values heading, text & value pills"
+        visible={visibility.coreValues}
+        onToggleVisible={() => toggleVisibility('coreValues')}
         isOpen={!collapsed.has('coreValues')}
         onToggle={() => toggleCollapse('coreValues')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_LABELS.coreValues}
-          visible={visibility.coreValues}
-          onToggle={() => toggleVisibility('coreValues')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.coreValues} onChange={(e) => setField({ coreValues: e.target.value })} />
           <Input label="Heading (AR)" value={formData.coreValuesAr} onChange={(e) => setField({ coreValuesAr: e.target.value })} dir="rtl" />
@@ -575,25 +547,6 @@ export default function AboutContentEditor() {
         </Button>
       </div>
     </div>
-  );
-}
-
-function SectionVisibilityToggle({ label, visible, onToggle }: { label: string; visible: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-secondary/30 bg-surface/50 hover:bg-secondary/10 transition-colors cursor-pointer self-start"
-    >
-      {visible ? (
-        <Eye size={16} className="text-primary" />
-      ) : (
-        <EyeOff size={16} className="text-text-secondary" />
-      )}
-      <span className="text-sm font-[family-name:var(--font-poppins)]">
-        {label}
-      </span>
-    </button>
   );
 }
 
