@@ -62,8 +62,8 @@ const SECTION_META: Record<SectionId, { title: string; hint: string }> = {
 interface CollapsibleSectionProps {
   id: string;
   title: string;
-  visible: boolean;
-  onToggleVisible: () => void;
+  visible?: boolean;
+  onToggleVisible?: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
   children: React.ReactNode;
@@ -71,7 +71,7 @@ interface CollapsibleSectionProps {
 }
 
 function CollapsibleSection({
-  id, title, visible, onToggleVisible,
+  id, title, visible = true, onToggleVisible,
   collapsed, onToggleCollapsed, children, hint,
 }: CollapsibleSectionProps) {
   return (
@@ -99,19 +99,21 @@ function CollapsibleSection({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={onToggleVisible}
-          title={visible ? 'Hide this section on the user panel' : 'Show this section on the user panel'}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer font-[family-name:var(--font-poppins)] shrink-0 ${
-            visible
-              ? 'bg-primary/10 text-primary hover:bg-primary/20'
-              : 'bg-secondary/20 text-text-secondary hover:bg-secondary/30'
-          }`}
-        >
-          {visible ? <Eye size={13} /> : <EyeOff size={13} />}
-          {visible ? 'Visible' : 'Hidden'}
-        </button>
+        {onToggleVisible && (
+          <button
+            type="button"
+            onClick={onToggleVisible}
+            title={visible ? 'Hide this section on the user panel' : 'Show this section on the user panel'}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer font-[family-name:var(--font-poppins)] shrink-0 ${
+              visible
+                ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                : 'bg-secondary/20 text-text-secondary hover:bg-secondary/30'
+            }`}
+          >
+            {visible ? <Eye size={13} /> : <EyeOff size={13} />}
+            {visible ? 'Visible' : 'Hidden'}
+          </button>
+        )}
       </div>
 
       {!collapsed && (
@@ -282,7 +284,7 @@ export default function ContactContentEditor() {
     if (!data) return;
     setSaving(true); setSaved(false); setError('');
     try {
-      const updated = await saveContactContent({ ...data, sectionVisibility });
+      const updated = await saveContactContent({ ...data, sectionVisibility: { ...sectionVisibility, hero: true } });
       setData(cloneData(updated));
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -350,8 +352,6 @@ export default function ContactContentEditor() {
         id="hero"
         title={SECTION_META.hero.title}
         hint={SECTION_META.hero.hint}
-        visible={sectionVisibility.hero}
-        onToggleVisible={() => toggleVisibility('hero')}
         collapsed={!!collapsed['hero']}
         onToggleCollapsed={() => toggleCollapse('hero')}
       >

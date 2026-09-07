@@ -327,8 +327,8 @@ function applyNewsFallbacks(p: Presentation): Presentation {
 interface CollapsibleSectionProps {
   id: string;
   title: string;
-  visible: boolean;
-  onToggleVisible: () => void;
+  visible?: boolean;
+  onToggleVisible?: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
   children: React.ReactNode;
@@ -336,7 +336,7 @@ interface CollapsibleSectionProps {
 }
 
 function CollapsibleSection({
-  id, title, visible, onToggleVisible,
+  id, title, visible = true, onToggleVisible,
   collapsed, onToggleCollapsed, children, hint,
 }: CollapsibleSectionProps) {
   return (
@@ -366,19 +366,21 @@ function CollapsibleSection({
         </div>
 
         {/* Visibility toggle */}
-        <button
-          type="button"
-          onClick={onToggleVisible}
-          title={visible ? 'Hide this section on the user panel' : 'Show this section on the user panel'}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer font-[family-name:var(--font-poppins)] shrink-0 ${
-            visible
-              ? 'bg-primary/10 text-primary hover:bg-primary/20'
-              : 'bg-secondary/20 text-text-secondary hover:bg-secondary/30'
-          }`}
-        >
-          {visible ? <Eye size={13} /> : <EyeOff size={13} />}
-          {visible ? 'Visible' : 'Hidden'}
-        </button>
+        {onToggleVisible && (
+          <button
+            type="button"
+            onClick={onToggleVisible}
+            title={visible ? 'Hide this section on the user panel' : 'Show this section on the user panel'}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer font-[family-name:var(--font-poppins)] shrink-0 ${
+              visible
+                ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                : 'bg-secondary/20 text-text-secondary hover:bg-secondary/30'
+            }`}
+          >
+            {visible ? <Eye size={13} /> : <EyeOff size={13} />}
+            {visible ? 'Visible' : 'Hidden'}
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -592,7 +594,7 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
         badge: data.badge, heroImage: data.heroImage,
         published: data.published,
         topics: data.topics, contributors: data.contributors, faqs: data.faqs,
-        sectionVisibility: data.sectionVisibility,
+        sectionVisibility: { ...data.sectionVisibility, hero: true },
         shortsCta: data.shortsCta,
         initiativesTopics: data.initiativesTopics,
         initiativesContributors: data.initiativesContributors,
@@ -683,8 +685,6 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
       <CollapsibleSection
         id="hero" title="Hero Section"
         hint="Title, description & hero image"
-        visible={vis('hero')}
-        onToggleVisible={() => setVis('hero', !vis('hero'))}
         collapsed={!!collapsed['hero']}
         onToggleCollapsed={() => toggleCollapse('hero')}
       >

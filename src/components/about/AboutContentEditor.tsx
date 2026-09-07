@@ -154,7 +154,7 @@ export default function AboutContentEditor() {
 
   const handleSave = () => {
     setError('');
-    saveMutation.mutate({ ...formData, sectionVisibility: visibility });
+    saveMutation.mutate({ ...formData, sectionVisibility: { ...visibility, hero: true } });
   };
 
   const isPending = saveMutation.isPending;
@@ -200,15 +200,10 @@ export default function AboutContentEditor() {
       {/* Hero Section */}
       <CollapsibleSection
         title={SECTION_LABELS.hero}
-        hint={sectionHint('hero')}
+        hint="Title, description & hero image"
         isOpen={!collapsed.has('hero')}
         onToggle={() => toggleCollapse('hero')}
       >
-        <SectionVisibilityToggle
-          label={SECTION_LABELS.hero}
-          visible={visibility.hero}
-          onToggle={() => toggleVisibility('hero')}
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.title} onChange={(e) => setField({ title: e.target.value })} />
           <Input label="Title (AR)" value={formData.titleAr} onChange={(e) => setField({ titleAr: e.target.value })} dir="rtl" />
