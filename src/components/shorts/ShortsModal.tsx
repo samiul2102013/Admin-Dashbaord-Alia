@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
@@ -25,6 +25,17 @@ interface ShortsModalProps {
 }
 
 const emptyResources: ShortResource[] = [{ title: '', url: '', type: '' }];
+
+type SectionKey = 'details' | 'keyTopics' | 'resources' | 'display';
+
+// Every section starts collapsed; only the video titles stay visible at the top
+// so uploads begin with the shortest possible scroll.
+const initialSections: Record<SectionKey, boolean> = {
+  details: false,
+  keyTopics: false,
+  resources: false,
+  display: false,
+};
 
 export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps) {
   const createShort = useCreateShort();
@@ -56,6 +67,7 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
   });
   const [status, setStatus] = useState('Draft');
   const [error, setError] = useState('');
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>(initialSections);
 
   // track if a chunked upload is in progress so the modal "Save" stays disabled
   // (the upload widget is self-driving and updates the URL fields directly).
@@ -114,6 +126,7 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
       });
       setStatus('Draft');
     }
+    setOpenSections(initialSections);
     setError('');
     updateShort.reset();
     createShort.reset();
@@ -121,6 +134,10 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
 
   const mutation = short ? updateShort : createShort;
   const isPending = mutation.isPending;
+
+  function toggleSection(key: SectionKey) {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   function handleSubmit() {
     if (!videoTitle.trim()) {
@@ -163,6 +180,9 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
     }
   }, [mutation.isError, mutation.error]);
 
+  const topicsCount = keyTopics.map((t) => t.trim()).filter(Boolean).length;
+  const resourcesCount = resources.filter((r) => r.title || r.url || r.type).length;
+
   const footer = (
     <div className="flex justify-center gap-4">
       <Button variant="secondary" onClick={onClose} disabled={isPending}>
@@ -181,6 +201,7 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
           <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>
         )}
 
+        {/* Titles stay visible at the top — the required field is always in view */}
         <div className="flex gap-8">
           <div className="flex-1">
             <Input label="Video Title" required placeholder="Enter video title" value={videoTitle} onChange={(e) => setVideoTitle(e.target.value)} />
@@ -190,97 +211,106 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
           </div>
         </div>
 
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Select label="Category" options={SHORT_CATEGORY_OPTIONS} placeholder="Select category" value={category} onChange={(e) => setCategory(e.target.value)} />
-          </div>
-          <div className="flex-1">
-            <Input label="Organization" placeholder="e.g. Dubai Marriage Fund" value={organization} onChange={(e) => setOrganization(e.target.value)} />
-          </div>
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input label="Family" placeholder="e.g. Family Support" value={family} onChange={(e) => setFamily(e.target.value)} />
-          </div>
-          <div className="flex-1">
-            <Select label="Language" options={LANGUAGE_OPTIONS} value={language} onChange={(e) => setLanguage(e.target.value)} />
-          </div>
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Select label="Marital Stage" options={MARITAL_STAGE_OPTIONS} placeholder="Select marital stage" value={maritalStage} onChange={(e) => setMaritalStage(e.target.value)} />
-          </div>
-          <div className="flex-1">
-            <Input label="Duration" placeholder="e.g. 2:30" value={duration} onChange={(e) => setDuration(e.target.value)} />
-          </div>
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input label="Speaker" placeholder="Speaker name" value={speaker} onChange={(e) => setSpeaker(e.target.value)} />
-          </div>
-          <div className="flex-1">
-            <Input label="Published Date" type="datetime-local" value={publishedAt} onChange={(e) => setPublishedAt(e.target.value)} />
-          </div>
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <div className="flex flex-col gap-[10px]">
-              <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
-                Cover Image
-              </label>
-              <ChunkedUploader
-                value={coverImage}
-                category="image"
-                label="Upload Cover Image"
-                onChange={setCoverImage}
-                helperText="Recommended 1280 × 720 px. JPG / PNG / WebP. Multi-GB supported."
-              />
+        <Section
+          title="Video Details"
+          hint="Category, uploads, description"
+          isOpen={openSections.details}
+          onToggle={() => toggleSection('details')}
+        >
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Select label="Category" options={SHORT_CATEGORY_OPTIONS} placeholder="Select category" value={category} onChange={(e) => setCategory(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Input label="Organization" placeholder="e.g. Dubai Marriage Fund" value={organization} onChange={(e) => setOrganization(e.target.value)} />
             </div>
           </div>
-          <div className="flex-1">
-            <div className="flex flex-col gap-[10px]">
-              <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
-                Video Upload
-              </label>
-              <ChunkedUploader
-                value={videoUrl}
-                category="video"
-                label="Upload Video"
-                onChange={setVideoUrl}
-                helperText="Recommended 1080p MP4. Up to 5 GB; chunked upload with progress."
-              />
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input label="Family" placeholder="e.g. Family Support" value={family} onChange={(e) => setFamily(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Select label="Language" options={LANGUAGE_OPTIONS} value={language} onChange={(e) => setLanguage(e.target.value)} />
             </div>
           </div>
-        </div>
 
-        <div>
-          <Textarea
-            label="Description"
-            placeholder="Enter video description"
-            rows={5}
-            className="h-[149px]"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-
-        <div className="flex gap-8">
-          <div className="flex-1">
-            <Input label="Share URL" placeholder="https://..." value={shareUrl} onChange={(e) => setShareUrl(e.target.value)} />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Select label="Marital Stage" options={MARITAL_STAGE_OPTIONS} placeholder="Select marital stage" value={maritalStage} onChange={(e) => setMaritalStage(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Input label="Duration" placeholder="e.g. 2:30" value={duration} onChange={(e) => setDuration(e.target.value)} />
+            </div>
           </div>
-          <div className="flex-1">
-            <Select label="Status" options={STATUS_OPTIONS} value={status} onChange={(e) => setStatus(e.target.value)} />
-          </div>
-        </div>
 
-        <div className="flex flex-col gap-[16px]">
-          <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
-            Key Topics
-          </label>
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input label="Speaker" placeholder="Speaker name" value={speaker} onChange={(e) => setSpeaker(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Input label="Published Date" type="datetime-local" value={publishedAt} onChange={(e) => setPublishedAt(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <div className="flex flex-col gap-[10px]">
+                <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
+                  Cover Image
+                </label>
+                <ChunkedUploader
+                  value={coverImage}
+                  category="image"
+                  label="Upload Cover Image"
+                  onChange={setCoverImage}
+                  helperText="Recommended 1280 × 720 px. JPG / PNG / WebP. Multi-GB supported."
+                />
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="flex flex-col gap-[10px]">
+                <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
+                  Video Upload
+                </label>
+                <ChunkedUploader
+                  value={videoUrl}
+                  category="video"
+                  label="Upload Video"
+                  onChange={setVideoUrl}
+                  helperText="Recommended 1080p MP4. Up to 5 GB; chunked upload with progress."
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Textarea
+              label="Description"
+              placeholder="Enter video description"
+              rows={5}
+              className="h-[149px]"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input label="Share URL" placeholder="https://..." value={shareUrl} onChange={(e) => setShareUrl(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <Select label="Status" options={STATUS_OPTIONS} value={status} onChange={(e) => setStatus(e.target.value)} />
+            </div>
+          </div>
+        </Section>
+
+        <Section
+          title="Key Topics Covered"
+          hint={topicsCount ? `${topicsCount} ${topicsCount === 1 ? 'topic' : 'topics'}` : undefined}
+          isOpen={openSections.keyTopics}
+          onToggle={() => toggleSection('keyTopics')}
+        >
           <div className="flex flex-col gap-3">
             {keyTopics.map((topic, i) => (
               <div key={i} className="flex items-center gap-3">
@@ -309,12 +339,14 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
               </Button>
             </div>
           </div>
-        </div>
+        </Section>
 
-        <div className="flex flex-col gap-[16px]">
-          <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
-            Resources
-          </label>
+        <Section
+          title="Resources & References"
+          hint={resourcesCount ? `${resourcesCount} ${resourcesCount === 1 ? 'item' : 'items'}` : undefined}
+          isOpen={openSections.resources}
+          onToggle={() => toggleSection('resources')}
+        >
           <div className="flex flex-col gap-3">
             {resources.map((resource, i) => (
               <div key={i} className="flex items-center gap-3">
@@ -344,12 +376,13 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
               </Button>
             </div>
           </div>
-        </div>
+        </Section>
 
-        <div className="flex flex-col gap-[16px]">
-          <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
-            Display Options
-          </label>
+        <Section
+          title="Display Options"
+          isOpen={openSections.display}
+          onToggle={() => toggleSection('display')}
+        >
           <div className="grid grid-cols-2 gap-4">
             {TOGGLE_KEYS.map((key) => (
               <label key={key} className="flex items-center gap-3 cursor-pointer">
@@ -365,7 +398,7 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
               </label>
             ))}
           </div>
-        </div>
+        </Section>
       </div>
     </Modal>
   );
@@ -394,4 +427,40 @@ function updateResource(index: number, field: keyof ShortResource, value: string
     const next = prev.map((r, i) => (i === index ? { ...r, [field]: value } : r));
     return next;
   };
+}
+
+/* ── Collapsible section wrapper (same pattern as ContactModal/PageContentEditor) ── */
+
+interface SectionProps {
+  title: string;
+  hint?: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+function Section({ title, hint, isOpen, onToggle, children }: SectionProps) {
+  return (
+    <div className="rounded-[12px] border border-secondary/30 bg-surface/50 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-secondary/10 transition-colors cursor-pointer"
+      >
+        {isOpen ? <ChevronDown size={16} className="shrink-0 text-text-secondary" /> : <ChevronRight size={16} className="shrink-0 text-text-secondary" />}
+        <span className="text-sm font-bold text-black font-[family-name:var(--font-poppins)]">{title}</span>
+        {hint && (
+          <span className="ml-auto text-xs text-text-secondary font-[family-name:var(--font-poppins)] shrink-0">
+            {hint}
+          </span>
+        )}
+      </button>
+      {isOpen && (
+        <div className="px-4 pb-4 pt-1 flex flex-col gap-6">
+          {children}
+        </div>
+      )}
+    </div>
+  );
 }
