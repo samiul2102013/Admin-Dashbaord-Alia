@@ -354,7 +354,8 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
 
         <div className="flex gap-8">
           <div className="flex-1">
-            <Input label="Published Date" type="date" value={publishedDate} onChange={(e) => setPublishedDate(e.target.value)} />
+            {/* Backend-managed: stamped on first publish; shown read-only. */}
+            <Input label="Published Date (auto)" type="date" value={publishedDate} onChange={(e) => setPublishedDate(e.target.value)} disabled />
           </div>
           <div className="flex-1">
             <Input label="Duration" placeholder="e.g. 2 hours" value={duration} onChange={(e) => setDuration(e.target.value)} />

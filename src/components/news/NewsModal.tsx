@@ -286,10 +286,25 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
 
         <div className="flex gap-8">
           <div className="flex-1">
-            <Input label="Published Date" type="date" value={publishedDate} onChange={(e) => setPublishedDate(e.target.value)} />
+            {/* Published/updated dates are managed by the backend (set on first
+                publish and on every save) — not editable manually. */}
+            {/* Published/updated dates are backend-managed; shown read-only. */}
+            <Input
+              label="Published Date (auto)"
+              type="date"
+              value={publishedDate}
+              onChange={(e) => setPublishedDate(e.target.value)}
+              disabled
+            />
           </div>
           <div className="flex-1">
-            <Input label="Updated Date" type="date" value={updatedDate} onChange={(e) => setUpdatedDate(e.target.value)} />
+            <Input
+              label="Updated Date (auto)"
+              type="date"
+              value={updatedDate}
+              onChange={(e) => setUpdatedDate(e.target.value)}
+              disabled
+            />
           </div>
         </div>
 
