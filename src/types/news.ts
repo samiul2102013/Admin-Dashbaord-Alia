@@ -10,8 +10,10 @@ export interface NewsArticle {
   articleTitleAr?: string;
   source?: string;
   content?: string;
+  contentAr?: string;
   coverImage?: string;
   author?: string;
+  authorAr?: string;
   editorialTeam?: string;
   organization?: string;
   moc?: string;

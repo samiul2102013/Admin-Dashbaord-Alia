@@ -13,13 +13,18 @@ export interface Initiative {
   subtitle?: string;
   subtitleAr?: string;
   description?: string;
+  descriptionAr?: string;
   purpose?: string;
+  purposeAr?: string;
   objectives?: string[];
+  objectivesAr?: string[];
   basicInformation?: string[];
   supportOffered?: Record<string, boolean>;
   benefits?: string[];
+  benefitsAr?: string[];
   coverImage?: string;
   badge?: string;
+  badgeAr?: string;
   contact?: string[];
   officialWebsiteUrl?: string;
   shareUrl?: string;

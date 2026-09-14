@@ -68,8 +68,10 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
   const [source, setSource] = useState('');
   const [language, setLanguage] = useState('en');
   const [content, setContent] = useState('');
+  const [contentAr, setContentAr] = useState('');
   const [coverImage, setCoverImage] = useState('');
   const [author, setAuthor] = useState('');
+  const [authorAr, setAuthorAr] = useState('');
   const [editorialTeam, setEditorialTeam] = useState('');
   const [organization, setOrganization] = useState('');
   const [moc, setMoc] = useState('');
@@ -101,8 +103,10 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
       setSource(article.source || '');
       setLanguage(article.language || 'en');
       setContent(article.content || '');
+      setContentAr(article.contentAr || '');
       setCoverImage(article.coverImage || '');
       setAuthor(article.author || '');
+      setAuthorAr(article.authorAr || '');
       setEditorialTeam(article.editorialTeam || '');
       setOrganization(article.organization || '');
       setMoc(article.moc || '');
@@ -126,8 +130,10 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
       setSource('');
       setLanguage('en');
       setContent('');
+      setContentAr('');
       setCoverImage('');
       setAuthor('');
+      setAuthorAr('');
       setEditorialTeam('');
       setOrganization('');
       setMoc('');
@@ -176,8 +182,10 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
       source,
       language,
       content,
+      contentAr,
       coverImage,
       author,
+      authorAr,
       editorialTeam,
       organization,
       moc,
@@ -274,12 +282,15 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
             </div>
           </div>
 
+          <div className="flex-1">
+            <Select label="Language" options={LANGUAGE_OPTIONS} value={language} onChange={(e) => setLanguage(e.target.value)} />
+          </div>
           <div className="flex gap-8">
             <div className="flex-1">
-              <Select label="Language" options={LANGUAGE_OPTIONS} value={language} onChange={(e) => setLanguage(e.target.value)} />
+              <Input label="Author" placeholder="Author name" value={author} onChange={(e) => setAuthor(e.target.value)} />
             </div>
             <div className="flex-1">
-              <Input label="Author" placeholder="Author name" value={author} onChange={(e) => setAuthor(e.target.value)} />
+              <Input label="Author (Arabic)" placeholder="اسم المؤلف" value={authorAr} onChange={(e) => setAuthorAr(e.target.value)} />
             </div>
           </div>
 
@@ -314,11 +325,21 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
             <Textarea
               label="Content"
               required
-              placeholder="Enter article content"
+              placeholder="Enter article content (English). If Arabic left blank, it will auto-translate on the user panel."
               rows={6}
               className="h-[180px]"
               value={content}
               onChange={(e) => setContent(e.target.value)}
+            />
+          </div>
+          <div>
+            <Textarea
+              label="Content (Arabic)"
+              placeholder="محتوى المقال (اختياري — سيتم الترجمة تلقائياً إن ترك فارغاً)"
+              rows={6}
+              className="h-[180px]"
+              value={contentAr}
+              onChange={(e) => setContentAr(e.target.value)}
             />
           </div>
 
