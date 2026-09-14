@@ -18,6 +18,7 @@ interface FooterModalProps {
 }
 
 const SECTIONS = [
+  'Section Visibility',
   'Brand',
   'Quick Links',
   'Resources',
@@ -26,6 +27,15 @@ const SECTIONS = [
 ] as const;
 
 type SectionKey = (typeof SECTIONS)[number];
+
+const FOOTER_VISIBILITY_KEYS = ['brand', 'quickLinks', 'resources', 'contacts', 'bottomBar'] as const;
+const FOOTER_VISIBILITY_LABELS: Record<(typeof FOOTER_VISIBILITY_KEYS)[number], string> = {
+  brand: 'Brand Column',
+  quickLinks: 'Quick Links Column',
+  resources: 'Resources Column',
+  contacts: 'Contacts Column',
+  bottomBar: 'Bottom Bar',
+};
 
 function cloneData(d: FooterContent | null): FooterContent {
   return d
@@ -39,6 +49,7 @@ function cloneData(d: FooterContent | null): FooterContent {
         phone: '', email: '', address: '', addressAr: '',
         copyrightText: '', copyrightTextAr: '', builtForText: '', builtForTextAr: '',
         published: false,
+        sectionVisibility: { brand: true, quickLinks: true, resources: true, contacts: true, bottomBar: true },
       };
 }
 
@@ -46,13 +57,13 @@ export default function FooterModal({ isOpen, onClose, data }: FooterModalProps)
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState<FooterContent>(() => cloneData(data));
   const [error, setError] = useState('');
-  const [openSections, setOpenSections] = useState<Set<SectionKey>>(new Set(['Brand']));
+  const [openSections, setOpenSections] = useState<Set<SectionKey>>(new Set(['Section Visibility', 'Brand']));
 
   useEffect(() => {
     if (isOpen) {
       setFormData(cloneData(data));
       setError('');
-      setOpenSections(new Set(['Brand']));
+      setOpenSections(new Set(['Section Visibility', 'Brand']));
     }
   }, [isOpen, data]);
 
@@ -105,6 +116,22 @@ export default function FooterModal({ isOpen, onClose, data }: FooterModalProps)
         {error && (
           <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>
         )}
+
+        <SectionBlock title="Section Visibility" isOpen={openSections.has('Section Visibility')} onToggle={() => toggleSection('Section Visibility')}>
+          <p className="col-span-full text-xs text-text-secondary -mt-1 mb-1 font-[family-name:var(--font-poppins)]">
+            Toggle each footer column on or off. When off it disappears from the user panel until you turn it back on — same as all other CMS models.
+          </p>
+          {FOOTER_VISIBILITY_KEYS.map((key) => {
+            const vis = (formData.sectionVisibility as Record<string, boolean>) ?? { brand: true, quickLinks: true, resources: true, contacts: true, bottomBar: true };
+            const enabled = vis[key] ?? true;
+            return (
+              <label key={key} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-secondary/30 bg-surface/50">
+                <span className="text-sm font-semibold font-[family-name:var(--font-poppins)]">{FOOTER_VISIBILITY_LABELS[key]}</span>
+                <input type="checkbox" checked={enabled} onChange={(e) => setField({ sectionVisibility: { ...vis, [key]: e.target.checked } } as Partial<FooterContent>)} className="w-5 h-5 accent-primary cursor-pointer" />
+              </label>
+            );
+          })}
+        </SectionBlock>
 
         <SectionBlock title="Brand Column" isOpen={openSections.has('Brand')} onToggle={() => toggleSection('Brand')}>
           <Input label="Logo URL" value={formData.logoUrl} onChange={(e) => setField({ logoUrl: e.target.value })} placeholder="Leave empty to use the default logo" />
