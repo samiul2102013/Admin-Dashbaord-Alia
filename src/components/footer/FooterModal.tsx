@@ -31,7 +31,10 @@ function cloneData(d: FooterContent | null): FooterContent {
   return d
     ? JSON.parse(JSON.stringify(d))
     : {
-        id: '', brandText: '', brandTextAr: '', governmentLabel: '', governmentLabelAr: '',
+        id: '', logoUrl: '', brandText: '', brandTextAr: '', governmentLabel: '', governmentLabelAr: '',
+        quickLinksHeading: '', quickLinksHeadingAr: '',
+        resourceLinksHeading: '', resourceLinksHeadingAr: '',
+        contactsHeading: '', contactsHeadingAr: '',
         quickLinks: [], resourceLinks: [],
         phone: '', email: '', address: '', addressAr: '',
         copyrightText: '', copyrightTextAr: '', builtForText: '', builtForTextAr: '',
@@ -104,6 +107,7 @@ export default function FooterModal({ isOpen, onClose, data }: FooterModalProps)
         )}
 
         <SectionBlock title="Brand Column" isOpen={openSections.has('Brand')} onToggle={() => toggleSection('Brand')}>
+          <Input label="Logo URL" value={formData.logoUrl} onChange={(e) => setField({ logoUrl: e.target.value })} placeholder="Leave empty to use the default logo" />
           <Textarea label="Brand Text (EN)" rows={4} value={formData.brandText} onChange={(e) => setField({ brandText: e.target.value })} />
           <Textarea label="Brand Text (AR)" rows={4} value={formData.brandTextAr} onChange={(e) => setField({ brandTextAr: e.target.value })} />
           <Input label="Government Label (EN)" value={formData.governmentLabel} onChange={(e) => setField({ governmentLabel: e.target.value })} />
@@ -111,14 +115,20 @@ export default function FooterModal({ isOpen, onClose, data }: FooterModalProps)
         </SectionBlock>
 
         <SectionBlock title="Quick Links" isOpen={openSections.has('Quick Links')} onToggle={() => toggleSection('Quick Links')}>
+          <Input label="Column Heading (EN)" value={formData.quickLinksHeading} onChange={(e) => setField({ quickLinksHeading: e.target.value })} />
+          <Input label="Column Heading (AR)" value={formData.quickLinksHeadingAr} onChange={(e) => setField({ quickLinksHeadingAr: e.target.value })} />
           <LinksEditor links={formData.quickLinks || []} onChange={setQuickLinks} />
         </SectionBlock>
 
         <SectionBlock title="Resource Links" isOpen={openSections.has('Resources')} onToggle={() => toggleSection('Resources')}>
+          <Input label="Column Heading (EN)" value={formData.resourceLinksHeading} onChange={(e) => setField({ resourceLinksHeading: e.target.value })} />
+          <Input label="Column Heading (AR)" value={formData.resourceLinksHeadingAr} onChange={(e) => setField({ resourceLinksHeadingAr: e.target.value })} />
           <LinksEditor links={formData.resourceLinks || []} onChange={setResourceLinks} />
         </SectionBlock>
 
         <SectionBlock title="Contacts Column" isOpen={openSections.has('Contacts')} onToggle={() => toggleSection('Contacts')}>
+          <Input label="Column Heading (EN)" value={formData.contactsHeading} onChange={(e) => setField({ contactsHeading: e.target.value })} />
+          <Input label="Column Heading (AR)" value={formData.contactsHeadingAr} onChange={(e) => setField({ contactsHeadingAr: e.target.value })} />
           <Input label="Phone" value={formData.phone} onChange={(e) => setField({ phone: e.target.value })} />
           <Input label="Email" value={formData.email} onChange={(e) => setField({ email: e.target.value })} />
           <Input label="Address (EN)" value={formData.address} onChange={(e) => setField({ address: e.target.value })} />

@@ -6,10 +6,17 @@ export interface FooterLink {
 
 export interface FooterContent {
   id: string;
+  logoUrl: string;
   brandText: string;
   brandTextAr: string;
   governmentLabel: string;
   governmentLabelAr: string;
+  quickLinksHeading: string;
+  quickLinksHeadingAr: string;
+  resourceLinksHeading: string;
+  resourceLinksHeadingAr: string;
+  contactsHeading: string;
+  contactsHeadingAr: string;
   quickLinks: FooterLink[];
   resourceLinks: FooterLink[];
   phone: string;
