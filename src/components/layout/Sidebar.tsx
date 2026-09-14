@@ -22,6 +22,7 @@ import {
   Home,
   Info,
   Phone,
+  PanelBottom,
   LogOut,
   type LucideIcon,
 } from 'lucide-react';
@@ -47,6 +48,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Homepage Content',             icon: Home,            href: '/homepage-content' },
   { label: 'About Us Content',             icon: Info,            href: '/about-content' },
   { label: 'Contact Content Management',    icon: Phone,           href: '/contact-content' },
+  { label: 'Footer Content Management',     icon: PanelBottom,     href: '/footer-content' },
   { label: 'Book Consultation',            icon: CalendarCheck,   href: '/bookings' },
   { label: 'Initiative Category',          icon: Grid3X3,         href: '/categories' },
   { label: 'Settings',                     icon: Settings,        href: '/settings' },
