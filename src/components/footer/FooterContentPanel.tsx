@@ -18,6 +18,15 @@ const STATUS_OPTIONS = [
   { value: 'Draft', label: 'Draft' },
 ];
 
+const SECTION_OPTIONS = [
+  { value: '', label: 'All sections' },
+  { value: 'brand', label: 'Brand' },
+  { value: 'quickLinks', label: 'Quick Links' },
+  { value: 'resources', label: 'Resources' },
+  { value: 'contacts', label: 'Contacts' },
+  { value: 'bottomBar', label: 'Bottom Bar' },
+];
+
 const columns: Column<FooterContent>[] = [
   {
     header: 'Logo',
@@ -30,26 +39,67 @@ const columns: Column<FooterContent>[] = [
       ),
     className: 'w-[80px]',
   },
-  { header: 'Brand Text (EN)', accessor: 'brandText', className: 'font-semibold text-navy max-w-[220px] truncate' },
-  { header: 'Brand (AR)', accessor: 'brandTextAr', className: 'max-w-[200px] truncate' },
-  { header: 'Gov. Label', accessor: 'governmentLabel', className: 'max-w-[160px] truncate' },
+  {
+    header: 'Brand Text (EN) / (AR)',
+    accessor: (row) => (
+      <div className="flex flex-col gap-1 max-w-[240px]">
+        <span className="font-semibold text-navy truncate">{row.brandText || '—'}</span>
+        <span className="text-[11px] text-text-secondary truncate" dir="rtl">{row.brandTextAr || '—'}</span>
+        <span className="text-[11px] text-text-secondary truncate">{row.governmentLabel} {row.governmentLabelAr ? ` / ${row.governmentLabelAr}` : ''}</span>
+      </div>
+    ),
+    className: 'min-w-[240px]',
+  },
   {
     header: 'Quick Links',
-    accessor: (row) => `${row.quickLinksHeading || 'Quick Links'} (${row.quickLinks?.length ?? 0})`,
-    className: 'max-w-[180px] truncate',
+    accessor: (row) => (
+      <div className="flex flex-col gap-1 max-w-[220px]">
+        <span className="text-xs font-bold text-navy truncate">{row.quickLinksHeading || 'Quick Links'} {row.quickLinksHeadingAr ? ` / ${row.quickLinksHeadingAr}` : ''}</span>
+        {(row.quickLinks || []).slice(0, 5).map((l, i) => (
+          <span key={i} className="text-[11px] truncate">{l.label}{l.labelAr ? ` / ${l.labelAr}` : ''} → {l.href}</span>
+        ))}
+        {(row.quickLinks?.length ?? 0) > 5 && <span className="text-[11px] text-text-secondary">+{row.quickLinks!.length - 5} more</span>}
+        {(!row.quickLinks || row.quickLinks.length === 0) && <span className="text-[11px] text-text-secondary">No links</span>}
+      </div>
+    ),
+    className: 'min-w-[220px]',
   },
   {
     header: 'Resources',
-    accessor: (row) => `${row.resourceLinksHeading || 'Resources'} (${row.resourceLinks?.length ?? 0})`,
-    className: 'max-w-[180px] truncate',
+    accessor: (row) => (
+      <div className="flex flex-col gap-1 max-w-[220px]">
+        <span className="text-xs font-bold text-navy truncate">{row.resourceLinksHeading || 'Resources'} {row.resourceLinksHeadingAr ? ` / ${row.resourceLinksHeadingAr}` : ''}</span>
+        {(row.resourceLinks || []).slice(0, 5).map((l, i) => (
+          <span key={i} className="text-[11px] truncate">{l.label}{l.labelAr ? ` / ${l.labelAr}` : ''} → {l.href}</span>
+        ))}
+        {(row.resourceLinks?.length ?? 0) > 5 && <span className="text-[11px] text-text-secondary">+{row.resourceLinks!.length - 5} more</span>}
+        {(!row.resourceLinks || row.resourceLinks.length === 0) && <span className="text-[11px] text-text-secondary">No links</span>}
+      </div>
+    ),
+    className: 'min-w-[220px]',
   },
-  { header: 'Contacts Heading', accessor: 'contactsHeading', className: 'max-w-[150px] truncate' },
-  { header: 'Phone', accessor: 'phone', className: 'max-w-[140px] truncate' },
-  { header: 'Email', accessor: 'email', className: 'max-w-[180px] truncate' },
-  { header: 'Address (EN)', accessor: 'address', className: 'max-w-[160px] truncate' },
-  { header: 'Address (AR)', accessor: 'addressAr', className: 'max-w-[160px] truncate' },
-  { header: 'Copyright', accessor: 'copyrightText', className: 'max-w-[150px] truncate' },
-  { header: 'Built For', accessor: 'builtForText', className: 'max-w-[150px] truncate' },
+  {
+    header: 'Contacts',
+    accessor: (row) => (
+      <div className="flex flex-col gap-1 max-w-[200px]">
+        <span className="text-xs font-bold text-navy truncate">{row.contactsHeading || 'Contacts'} {row.contactsHeadingAr ? ` / ${row.contactsHeadingAr}` : ''}</span>
+        <span className="text-[11px] truncate">📞 {row.phone || '—'}</span>
+        <span className="text-[11px] truncate">✉️ {row.email || '—'}</span>
+        <span className="text-[11px] truncate">{row.address || '—'} {row.addressAr ? ` / ${row.addressAr}` : ''}</span>
+      </div>
+    ),
+    className: 'min-w-[200px]',
+  },
+  {
+    header: 'Bottom Bar',
+    accessor: (row) => (
+      <div className="flex flex-col gap-1 max-w-[180px]">
+        <span className="text-[11px] truncate">{row.copyrightText || '—'} {row.copyrightTextAr ? ` / ${row.copyrightTextAr}` : ''}</span>
+        <span className="text-[11px] truncate">{row.builtForText || '—'} {row.builtForTextAr ? ` / ${row.builtForTextAr}` : ''}</span>
+      </div>
+    ),
+    className: 'min-w-[180px]',
+  },
   {
     header: 'Visibility',
     accessor: (row) => {
@@ -57,7 +107,7 @@ const columns: Column<FooterContent>[] = [
       const hidden = Object.entries(vis).filter(([, v]) => v === false).map(([k]) => k).join(', ');
       return hidden ? `Hidden: ${hidden}` : 'All visible';
     },
-    className: 'max-w-[180px] truncate text-[11px]',
+    className: 'max-w-[160px] truncate text-[11px]',
   },
   {
     header: 'Published',
@@ -73,19 +123,19 @@ export default function FooterContentPanel() {
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [section, setSection] = useState('');
 
   const { data, isLoading, error } = useQuery({
     queryKey: footerKeys.content(),
     queryFn: getFooterContent,
   });
 
-  // Client-side filtering like all other admin tables (News, Initiatives, etc.)
-  // Covers every field rendered in the user panel footer.
+  // Client-side filtering like all other admin tables — covers EVERY user-panel footer field
   const tableData = useMemo(() => {
     if (!data) return [];
     const q = search.trim().toLowerCase();
     const targetPublished = status ? status === 'Published' : null;
-    const haystack = [
+    const haystackAll = [
       data.brandText, data.brandTextAr, data.governmentLabel, data.governmentLabelAr,
       data.quickLinksHeading, data.quickLinksHeadingAr, data.resourceLinksHeading, data.resourceLinksHeadingAr,
       data.contactsHeading, data.contactsHeadingAr,
@@ -96,10 +146,21 @@ export default function FooterContentPanel() {
       data.logoUrl,
     ].join(' ').toLowerCase();
 
+    // Section-specific haystack when a section filter is active
+    const haystack = (() => {
+      if (!section) return haystackAll;
+      if (section === 'brand') return [data.brandText, data.brandTextAr, data.governmentLabel, data.governmentLabelAr, data.logoUrl].join(' ').toLowerCase();
+      if (section === 'quickLinks') return [data.quickLinksHeading, data.quickLinksHeadingAr, ...(data.quickLinks?.map((l) => `${l.label} ${l.labelAr ?? ''} ${l.href}`) ?? [])].join(' ').toLowerCase();
+      if (section === 'resources') return [data.resourceLinksHeading, data.resourceLinksHeadingAr, ...(data.resourceLinks?.map((l) => `${l.label} ${l.labelAr ?? ''} ${l.href}`) ?? [])].join(' ').toLowerCase();
+      if (section === 'contacts') return [data.contactsHeading, data.contactsHeadingAr, data.phone, data.email, data.address, data.addressAr].join(' ').toLowerCase();
+      if (section === 'bottomBar') return [data.copyrightText, data.copyrightTextAr, data.builtForText, data.builtForTextAr].join(' ').toLowerCase();
+      return haystackAll;
+    })();
+
     if (q && !haystack.includes(q)) return [];
     if (targetPublished !== null && data.published !== targetPublished) return [];
     return [data];
-  }, [data, search, status]);
+  }, [data, search, status, section]);
 
   const filteredCount = tableData.length;
   const totalCount = data ? 1 : 0;
@@ -127,12 +188,12 @@ export default function FooterContentPanel() {
         </Button>
       </div>
 
-      {/* Filter bar — same pattern as News/Initiatives/Shorts tables: search + status */}
+      {/* Filter bar — same pattern as other CMS tables: search + status + section. Every user-panel footer field is filterable. */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative w-72">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
           <input
-            placeholder="Search footer — brand, links, contacts, copyright..."
+            placeholder="Search footer — brand, quick links, resources, contacts..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full h-10 pl-9 pr-4 rounded-[10px] border border-secondary/40 bg-surface text-sm outline-none focus:border-primary transition-colors font-[family-name:var(--font-poppins)]"
@@ -141,11 +202,19 @@ export default function FooterContentPanel() {
         <div className="w-44">
           <Select placeholder="All statuses" options={STATUS_OPTIONS} value={status} onChange={(e) => setStatus(e.target.value)} />
         </div>
-        {search || status ? (
+        <div className="w-44">
+          <Select placeholder="All sections" options={SECTION_OPTIONS} value={section} onChange={(e) => setSection(e.target.value)} />
+        </div>
+        {search || status || section ? (
           <span className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
             {filteredCount} / {totalCount} matched
           </span>
         ) : null}
+        {(search || status || section) && filteredCount === 0 && totalCount > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setStatus(''); setSection(''); }}>
+            Clear filters
+          </Button>
+        )}
       </div>
 
       {error && (
