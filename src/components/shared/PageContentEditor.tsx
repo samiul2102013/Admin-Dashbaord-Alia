@@ -629,6 +629,57 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
     }
   };
 
+  const handleTogglePublished = async () => {
+    if (!data) return;
+    const nextPublished = !data.published;
+    const nextData = { ...data, published: nextPublished };
+    setData(nextData);
+    setSaving(true);
+    setSaved(false);
+    setError('');
+    try {
+      const updated = await updatePresentation(data.id, {
+        title: nextData.title, titleAr: nextData.titleAr,
+        description: nextData.description, descriptionAr: nextData.descriptionAr,
+        badge: nextData.badge, heroImage: nextData.heroImage,
+        published: nextData.published,
+        topics: nextData.topics, contributors: nextData.contributors, faqs: nextData.faqs,
+        sectionVisibility: { ...nextData.sectionVisibility, hero: true },
+        shortsCta: nextData.shortsCta,
+        initiativesTopics: nextData.initiativesTopics,
+        initiativesContributors: nextData.initiativesContributors,
+        initiativesFaqs: nextData.initiativesFaqs,
+        initiativesSectionVisibility: nextData.initiativesSectionVisibility,
+        consultationTopics: nextData.consultationTopics,
+        consultationContributors: nextData.consultationContributors,
+        consultationFaqs: nextData.consultationFaqs,
+        consultationSectionVisibility: nextData.consultationSectionVisibility,
+        emiratesTopics: nextData.emiratesTopics,
+        emiratesContributors: nextData.emiratesContributors,
+        emiratesFaqs: nextData.emiratesFaqs,
+        emiratesSectionVisibility: nextData.emiratesSectionVisibility,
+        newsTopics: nextData.newsTopics,
+        newsContributors: nextData.newsContributors,
+        newsFaqs: nextData.newsFaqs,
+        newsSectionVisibility: nextData.newsSectionVisibility,
+      });
+      let patched = updated;
+      if (presentationKey === 'shorts') patched = applyShortsFallbacks(patched);
+      if (presentationKey === 'initiatives') patched = applyInitiativesFallbacks(patched);
+      if (presentationKey === 'consultation') patched = applyConsultationFallbacks(patched);
+      if (presentationKey === 'emirates') patched = applyEmiratesFallbacks(patched);
+      if (presentationKey === 'news') patched = applyNewsFallbacks(patched);
+      setData(patched);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e) {
+      setError(getErrorMessage(e));
+      setData((prev) => prev ? { ...prev, published: !nextPublished } : prev);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -666,10 +717,11 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
         </div>
         <button
           type="button"
-          onClick={() => setField({ published: !data.published })}
+          onClick={handleTogglePublished}
+          disabled={saving}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer shrink-0 ${
             data.published ? 'bg-primary' : 'bg-secondary/40'
-          }`}
+          } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
           role="switch"
           aria-checked={data.published}
         >
