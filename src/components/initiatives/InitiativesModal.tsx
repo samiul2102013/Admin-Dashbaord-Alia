@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
@@ -8,8 +8,14 @@ import Select from '@/components/shared/Select';
 import Button from '@/components/shared/Button';
 import ChunkedUploader from '@/components/shared/ChunkedUploader';
 import CollapsibleSection from '@/components/shared/CollapsibleSection';
-import { EMIRATES_OPTIONS, STATUS_OPTIONS } from '@/lib/constants';
+import StatusField from '@/components/shared/StatusField';
+import ArabicField from '@/components/shared/ArabicField';
+import TranslationProvider from '@/components/shared/TranslationProvider';
+import TranslationToolbar from '@/components/shared/TranslationToolbar';
+import { EMIRATES_OPTIONS } from '@/lib/constants';
 import { getErrorMessage } from '@/lib/api-client';
+import { getInitiative } from '@/lib/services/initiatives';
+import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
 import { useCreateInitiative, useUpdateInitiative } from '@/hooks/useInitiatives';
 import { useCategories } from '@/hooks/useCategories';
 import type { Initiative } from '@/types/initiatives';
@@ -112,10 +118,13 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
   const [endDate, setEndDate] = useState('');
   const [coverImage, setCoverImage] = useState('');
   const [badge, setBadge] = useState('');
+  const [badgeAr, setBadgeAr] = useState('');
   const [officialWebsiteUrl, setOfficialWebsiteUrl] = useState('');
   const [shareUrl, setShareUrl] = useState('');
   const [description, setDescription] = useState('');
+  const [descriptionAr, setDescriptionAr] = useState('');
   const [purpose, setPurpose] = useState('');
+  const [purposeAr, setPurposeAr] = useState('');
   const [objectives, setObjectives] = useState('');
   const [basicInformation, setBasicInformation] = useState('');
   const [benefits, setBenefits] = useState('');
@@ -129,6 +138,8 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
   const [isListed, setIsListed] = useState(true);
   const [status, setStatus] = useState('Draft');
   const [error, setError] = useState('');
+  const [machineFlags, setMachineFlags] = useState<Record<string, boolean>>({});
+  const [failedFields, setFailedFields] = useState<Set<string>>(new Set());
   const [openSections, setOpenSections] = useState<Record<InitiativeSectionKey, boolean>>(initialSections);
 
   function toggleSection(key: InitiativeSectionKey) {
@@ -147,10 +158,13 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       setEndDate(initiative.endDate || '');
       setCoverImage(initiative.coverImage || '');
       setBadge(initiative.badge || '');
+      setBadgeAr(initiative.badgeAr || '');
       setOfficialWebsiteUrl(initiative.officialWebsiteUrl || '');
       setShareUrl(initiative.shareUrl || '');
       setDescription(initiative.description || '');
+      setDescriptionAr(initiative.descriptionAr || '');
       setPurpose(initiative.purpose || '');
+      setPurposeAr(initiative.purposeAr || '');
       setObjectives(joinLines(initiative.objectives));
       setBasicInformation(joinLines(initiative.basicInformation));
       setBenefits(joinLines(initiative.benefits));
@@ -163,6 +177,14 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       setIsFeatured(Boolean(initiative.isFeatured));
       setIsListed(initiative.isListed ?? true);
       setStatus(initiative.status || 'Draft');
+      setMachineFlags({
+        titleAr: getIsMachineFlag(initiative, 'titleAr'),
+        subtitleAr: getIsMachineFlag(initiative, 'subtitleAr'),
+        descriptionAr: getIsMachineFlag(initiative, 'descriptionAr'),
+        purposeAr: getIsMachineFlag(initiative, 'purposeAr'),
+        badgeAr: getIsMachineFlag(initiative, 'badgeAr'),
+      });
+      setFailedFields(new Set());
     } else {
       setTitle('');
       setTitleAr('');
@@ -174,10 +196,13 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       setEndDate('');
       setCoverImage('');
       setBadge('');
+      setBadgeAr('');
       setOfficialWebsiteUrl('');
       setShareUrl('');
       setDescription('');
+      setDescriptionAr('');
       setPurpose('');
+      setPurposeAr('');
       setObjectives('');
       setBasicInformation('');
       setBenefits('');
@@ -190,6 +215,8 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       setIsFeatured(false);
       setIsListed(true);
       setStatus('Draft');
+      setMachineFlags({});
+      setFailedFields(new Set());
     }
 
     setError('');
@@ -228,10 +255,13 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       endDate,
       coverImage,
       badge: badge.trim(),
+      badgeAr: badgeAr.trim(),
       officialWebsiteUrl: officialWebsiteUrl.trim(),
       shareUrl: shareUrl.trim(),
       description: description.trim(),
+      descriptionAr: descriptionAr.trim(),
       purpose: purpose.trim(),
+      purposeAr: purposeAr.trim(),
       objectives: splitLines(objectives),
       basicInformation: splitLines(basicInformation),
       benefits: splitLines(benefits),
@@ -262,6 +292,39 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
     }
   }, [mutation.isError, mutation.error]);
 
+  // Reload the record after a retranslation and refresh the per-field status.
+  const reloadTranslations = useCallback(async () => {
+    if (!initiative) return;
+    const fresh = await getInitiative(initiative.id);
+    setTitleAr(fresh.titleAr || '');
+    setSubtitleAr(fresh.subtitleAr || '');
+    setDescriptionAr(fresh.descriptionAr || '');
+    setPurposeAr(fresh.purposeAr || '');
+    setBadgeAr(fresh.badgeAr || '');
+    setMachineFlags({
+      titleAr: getIsMachineFlag(fresh, 'titleAr'),
+      subtitleAr: getIsMachineFlag(fresh, 'subtitleAr'),
+      descriptionAr: getIsMachineFlag(fresh, 'descriptionAr'),
+      purposeAr: getIsMachineFlag(fresh, 'purposeAr'),
+      badgeAr: getIsMachineFlag(fresh, 'badgeAr'),
+    });
+    const failed = new Set<string>();
+    if ((fresh.title || '').trim() && !(fresh.titleAr || '').trim()) failed.add('titleAr');
+    if ((fresh.subtitle || '').trim() && !(fresh.subtitleAr || '').trim()) failed.add('subtitleAr');
+    if ((fresh.description || '').trim() && !(fresh.descriptionAr || '').trim()) failed.add('descriptionAr');
+    if ((fresh.purpose || '').trim() && !(fresh.purposeAr || '').trim()) failed.add('purposeAr');
+    if ((fresh.badge || '').trim() && !(fresh.badgeAr || '').trim()) failed.add('badgeAr');
+    setFailedFields(failed);
+  }, [initiative]);
+
+  const translationStates: TranslationState[] = [
+    getTranslationState(title, titleAr, machineFlags.titleAr, failedFields.has('titleAr')),
+    getTranslationState(subtitle, subtitleAr, machineFlags.subtitleAr, failedFields.has('subtitleAr')),
+    getTranslationState(description, descriptionAr, machineFlags.descriptionAr, failedFields.has('descriptionAr')),
+    getTranslationState(purpose, purposeAr, machineFlags.purposeAr, failedFields.has('purposeAr')),
+    getTranslationState(badge, badgeAr, machineFlags.badgeAr, failedFields.has('badgeAr')),
+  ];
+
   const footer = (
     <div className="flex justify-center gap-4">
       <Button variant="secondary" onClick={onClose} disabled={isPending}>
@@ -274,6 +337,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
   );
 
   return (
+    <TranslationProvider model="initiative" id={initiative?.id} onTranslated={reloadTranslations}>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
@@ -282,6 +346,8 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
     >
       <div className="flex flex-col gap-8">
         {error && <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>}
+
+        <TranslationToolbar states={translationStates} title={title || undefined} />
 
         {/* Title + Subtitle always visible at top */}
         <div className="flex gap-8">
@@ -295,11 +361,14 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
             />
           </div>
           <div className="flex-1">
-            <Input
+            <ArabicField
               label="Title (Arabic)"
               placeholder="عنوان المبادرة"
+              englishValue={title}
               value={titleAr}
-              onChange={(e) => setTitleAr(e.target.value)}
+              onChange={setTitleAr}
+              isMachine={machineFlags.titleAr}
+              failed={failedFields.has('titleAr')}
             />
           </div>
         </div>
@@ -314,11 +383,14 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
             />
           </div>
           <div className="flex-1">
-            <Input
+            <ArabicField
               label="Subtitle (Arabic)"
               placeholder="العنوان الفرعي"
+              englishValue={subtitle}
               value={subtitleAr}
-              onChange={(e) => setSubtitleAr(e.target.value)}
+              onChange={setSubtitleAr}
+              isMachine={machineFlags.subtitleAr}
+              failed={failedFields.has('subtitleAr')}
             />
           </div>
         </div>
@@ -383,13 +455,23 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
               />
             </div>
             <div className="flex-1">
-              <Select
-                label="Status"
-                options={STATUS_OPTIONS}
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
+              <ArabicField
+                label="Badge (Arabic)"
+                placeholder="شارة مميزة"
+                englishValue={badge}
+                value={badgeAr}
+                onChange={setBadgeAr}
+                isMachine={machineFlags.badgeAr}
+                failed={failedFields.has('badgeAr')}
               />
             </div>
+          </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <StatusField value={status} onChange={setStatus} />
+            </div>
+            <div className="flex-1" />
           </div>
         </CollapsibleSection>
 
@@ -444,12 +526,40 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
           </div>
 
           <div>
+            <ArabicField
+              label="Description (Arabic)"
+              placeholder="وصف المبادرة"
+              multiline
+              rows={5}
+              englishValue={description}
+              value={descriptionAr}
+              onChange={setDescriptionAr}
+              isMachine={machineFlags.descriptionAr}
+              failed={failedFields.has('descriptionAr')}
+            />
+          </div>
+
+          <div>
             <Textarea
               label="Purpose"
               placeholder="Enter initiative purpose"
               rows={4}
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <ArabicField
+              label="Purpose (Arabic)"
+              placeholder="الغرض من المبادرة"
+              multiline
+              rows={4}
+              englishValue={purpose}
+              value={purposeAr}
+              onChange={setPurposeAr}
+              isMachine={machineFlags.purposeAr}
+              failed={failedFields.has('purposeAr')}
             />
           </div>
 
@@ -616,5 +726,6 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
         </CollapsibleSection>
       </div>
     </Modal>
+    </TranslationProvider>
   );
 }

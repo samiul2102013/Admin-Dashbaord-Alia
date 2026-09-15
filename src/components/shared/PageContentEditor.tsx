@@ -1,15 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Save, Loader2, CheckCircle2, Plus, Trash2,
-  Eye, EyeOff, ChevronDown, ChevronUp,
+  Eye, EyeOff, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Button from '@/components/shared/Button';
+import ArabicField from '@/components/shared/ArabicField';
+import TranslationProvider from '@/components/shared/TranslationProvider';
+import TranslationToolbar from '@/components/shared/TranslationToolbar';
 import { getErrorMessage } from '@/lib/api-client';
 import { listPresentations, updatePresentation } from '@/lib/services/presentations';
+import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
 import { useUpload } from '@/hooks/useMeta';
 import type {
   Presentation, PresentationFaq, PresentationTopic, ShortsSectionVisibility, ShortsCta,
@@ -322,6 +326,17 @@ function applyNewsFallbacks(p: Presentation): Presentation {
   };
 }
 
+/* ── Page-specific fallbacks ──────────────────────────────────────────────── */
+
+function applyFallbacksFor(key: string, p: Presentation): Presentation {
+  if (key === 'shorts') return applyShortsFallbacks(p);
+  if (key === 'initiatives') return applyInitiativesFallbacks(p);
+  if (key === 'consultation') return applyConsultationFallbacks(p);
+  if (key === 'emirates') return applyEmiratesFallbacks(p);
+  if (key === 'news') return applyNewsFallbacks(p);
+  return p;
+}
+
 /* ── Collapsible section wrapper ──────────────────────────────────────────── */
 
 interface CollapsibleSectionProps {
@@ -333,12 +348,22 @@ interface CollapsibleSectionProps {
   onToggleCollapsed: () => void;
   children: React.ReactNode;
   hint?: string;
+  /**
+   * Real name of the public section this visibility toggle controls. Defaults
+   * to `title`. Shown in the toggle tooltip and the hidden notice so admins know
+   * exactly what disappears from the public site.
+   */
+  sectionName?: string;
+  /** Optional concrete preview of what is hidden, e.g. "the Topics cards". */
+  hidePreview?: string;
 }
 
 function CollapsibleSection({
   id, title, visible = true, onToggleVisible,
-  collapsed, onToggleCollapsed, children, hint,
+  collapsed, onToggleCollapsed, children, hint, sectionName, hidePreview,
 }: CollapsibleSectionProps) {
+  const publicName = sectionName ?? title;
+
   return (
     <div className="rounded-[12px] border border-secondary/30 overflow-hidden">
       {/* Header */}
@@ -352,8 +377,8 @@ function CollapsibleSection({
             aria-controls={`section-${id}`}
           >
             {collapsed
-              ? <ChevronDown size={16} className="shrink-0 text-text-secondary" />
-              : <ChevronUp   size={16} className="shrink-0 text-text-secondary" />}
+              ? <ChevronRight size={16} className="shrink-0 text-text-secondary" />
+              : <ChevronDown  size={16} className="shrink-0 text-text-secondary" />}
             <span className="text-sm font-bold text-black font-[family-name:var(--font-poppins)] truncate">
               {title}
             </span>
@@ -370,7 +395,12 @@ function CollapsibleSection({
           <button
             type="button"
             onClick={onToggleVisible}
-            title={visible ? 'Hide this section on the user panel' : 'Show this section on the user panel'}
+            aria-pressed={!visible}
+            title={
+              visible
+                ? `Hide the "${publicName}" section from the public site`
+                : `Show the "${publicName}" section on the public site`
+            }
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer font-[family-name:var(--font-poppins)] shrink-0 ${
               visible
                 ? 'bg-primary/10 text-primary hover:bg-primary/20'
@@ -378,10 +408,17 @@ function CollapsibleSection({
             }`}
           >
             {visible ? <Eye size={13} /> : <EyeOff size={13} />}
-            {visible ? 'Visible' : 'Hidden'}
+            {visible ? 'Visible publicly' : 'Hidden publicly'}
           </button>
         )}
       </div>
+
+      {/* Hidden notice */}
+      {onToggleVisible && !visible && (
+        <div className="border-t border-secondary/20 bg-warning/5 px-4 py-2 text-xs text-warning font-[family-name:var(--font-poppins)]">
+          Hidden from the public site: {hidePreview ?? `the entire "${publicName}" section`}.
+        </div>
+      )}
 
       {/* Content */}
       {!collapsed && (
@@ -456,6 +493,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [machineFlags, setMachineFlags] = useState<Record<string, boolean>>({});
+  const [failedFields, setFailedFields] = useState<Set<string>>(new Set());
   const upload = useUpload();
 
   // Collapse state per section — persisted in localStorage
@@ -481,21 +520,60 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
     setLoading(true);
     setError('');
     setSaved(false);
+    setFailedFields(new Set());
     listPresentations()
       .then((list) => {
         if (!mounted) return;
-        let found = list.find((p) => p.key === presentationKey) ?? null;
-        if (found && presentationKey === 'shorts') found = applyShortsFallbacks(found);
-        if (found && presentationKey === 'initiatives') found = applyInitiativesFallbacks(found);
-        if (found && presentationKey === 'consultation') found = applyConsultationFallbacks(found);
-        if (found && presentationKey === 'emirates') found = applyEmiratesFallbacks(found);
-        if (found && presentationKey === 'news') found = applyNewsFallbacks(found);
+        const raw = list.find((p) => p.key === presentationKey) ?? null;
+        const found = raw ? applyFallbacksFor(presentationKey, raw) : null;
+        setMachineFlags({
+          titleAr: getIsMachineFlag(found ?? {}, 'titleAr'),
+          descriptionAr: getIsMachineFlag(found ?? {}, 'descriptionAr'),
+        });
         setData(found);
       })
       .catch((e) => { if (mounted) setError(getErrorMessage(e)); })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
   }, [presentationKey]);
+
+  // Reload the presentation after a retranslation and refresh per-field status.
+  const reloadTranslations = useCallback(async () => {
+    if (!data?.id) return;
+    const list = await listPresentations();
+    const raw = list.find((p) => p.key === presentationKey);
+    if (!raw) return;
+    const fresh = applyFallbacksFor(presentationKey, raw);
+
+    setMachineFlags({
+      titleAr: getIsMachineFlag(fresh, 'titleAr'),
+      descriptionAr: getIsMachineFlag(fresh, 'descriptionAr'),
+    });
+
+    const failed = new Set<string>();
+    if ((fresh.title ?? '').trim() && !(fresh.titleAr ?? '').trim()) failed.add('titleAr');
+    if ((fresh.description ?? '').trim() && !(fresh.descriptionAr ?? '').trim()) failed.add('descriptionAr');
+    setFailedFields(failed);
+
+    setData((prev) => prev
+      ? {
+          ...fresh,
+          // Refresh only the persisted scalar pairs; keep every other edited
+          // nested value (topics, faqs, cta, …) from the current draft.
+          title: fresh.title ?? prev.title,
+          titleAr: fresh.titleAr ?? prev.titleAr,
+          description: fresh.description ?? prev.description,
+          descriptionAr: fresh.descriptionAr ?? prev.descriptionAr,
+        }
+      : fresh);
+  }, [data?.id, presentationKey]);
+
+  const translationStates: TranslationState[] = data
+    ? [
+        getTranslationState(data.title, data.titleAr, machineFlags.titleAr, failedFields.has('titleAr')),
+        getTranslationState(data.description, data.descriptionAr, machineFlags.descriptionAr, failedFields.has('descriptionAr')),
+      ]
+    : [];
 
   const setField = (patch: Partial<Presentation>) =>
     setData((prev) => prev ? { ...prev, ...patch } : prev);
@@ -613,12 +691,7 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
         newsFaqs: data.newsFaqs,
         newsSectionVisibility: data.newsSectionVisibility,
       });
-      let patched = updated;
-      if (presentationKey === 'shorts') patched = applyShortsFallbacks(patched);
-      if (presentationKey === 'initiatives') patched = applyInitiativesFallbacks(patched);
-      if (presentationKey === 'consultation') patched = applyConsultationFallbacks(patched);
-      if (presentationKey === 'emirates') patched = applyEmiratesFallbacks(patched);
-      if (presentationKey === 'news') patched = applyNewsFallbacks(patched);
+      const patched = applyFallbacksFor(presentationKey, updated);
       setData(patched);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -700,8 +773,11 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
   }
 
   return (
+    <TranslationProvider model="presentation" id={data.id} onTranslated={reloadTranslations}>
     <div className="flex flex-col gap-5 flex-1 min-h-0 overflow-y-auto pb-8">
       {error && <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>}
+
+      <TranslationToolbar states={translationStates} title={data.title || undefined} />
 
       {/* ── Global toggle ──────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4 p-4 rounded-[12px] border border-secondary/30 bg-surface">
@@ -711,8 +787,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           </span>
           <span className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
             {data.published
-              ? 'This page is visible in the navbar. Turn off to hide the nav link.'
-              : 'This page is hidden from the navbar.'}
+              ? 'Published shows the complete public page and all of its content on the website. Turning this off removes the whole page, not just the navigation link.'
+              : 'This page is not published — the complete public page/content is hidden (not only the navbar link).'}
           </span>
         </div>
         <button
@@ -742,10 +818,26 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Title (English)"  value={data.title}    onChange={(e) => setField({ title: e.target.value })} />
-          <Input label="Title (Arabic)"   value={data.titleAr}  onChange={(e) => setField({ titleAr: e.target.value })} />
+          <ArabicField
+            label="Title (Arabic)"
+            englishValue={data.title}
+            value={data.titleAr}
+            onChange={(v) => setField({ titleAr: v })}
+            isMachine={machineFlags.titleAr}
+            failed={failedFields.has('titleAr')}
+          />
         </div>
         <Textarea label="Description (English)" rows={3} value={data.description}    onChange={(e) => setField({ description: e.target.value })} />
-        <Textarea label="Description (Arabic)"  rows={3} value={data.descriptionAr} onChange={(e) => setField({ descriptionAr: e.target.value })} />
+        <ArabicField
+          label="Description (Arabic)"
+          multiline
+          rows={3}
+          englishValue={data.description}
+          value={data.descriptionAr}
+          onChange={(v) => setField({ descriptionAr: v })}
+          isMachine={machineFlags.descriptionAr}
+          failed={failedFields.has('descriptionAr')}
+        />
         <Input label="Badge"          value={data.badge}      onChange={(e) => setField({ badge: e.target.value })} />
         <div className="col-span-full">
           <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)] mb-2 block">
@@ -777,6 +869,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="topics" title="Explore Topics"
             hint="Cards shown on the Shorts page"
+            sectionName="Explore Topics"
+            hidePreview="the Explore Topics cards on the public Shorts page"
             visible={vis('topics')}
             onToggleVisible={() => setVis('topics', !vis('topics'))}
             collapsed={!!collapsed['topics']}
@@ -784,16 +878,31 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           >
             {(data.topics ?? []).map((topic, i) => (
               <div key={i} className="flex flex-col md:flex-row items-end gap-2">
-                <div className="flex-1">
-                  <Input
-                    label={`Topic ${i + 1} — Title`}
-                    value={topic.title}
-                    onChange={(e) => {
-                      const next = [...data.topics];
-                      next[i] = { ...topic, title: e.target.value };
-                      setTopics(next);
-                    }}
-                  />
+                <div className="flex-1 md:flex md:gap-2">
+                  <div className="flex-1">
+                    <Input
+                      label={`Topic ${i + 1} — Title`}
+                      value={topic.title}
+                      onChange={(e) => {
+                        const next = [...data.topics];
+                        next[i] = { ...topic, title: e.target.value };
+                        setTopics(next);
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <ArabicField
+                      label={`Topic ${i + 1} — Title (Arabic)`}
+                      statusOnly
+                      englishValue={topic.title}
+                      value={topic.titleAr ?? ''}
+                      onChange={(v) => {
+                        const next = [...data.topics];
+                        next[i] = { ...topic, titleAr: v };
+                        setTopics(next);
+                      }}
+                    />
+                  </div>
                 </div>
                 <div className="w-full md:w-[160px]">
                   <Input
@@ -825,11 +934,16 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="contributors" title="Trusted Contributors"
             hint="Name cards displayed on the Shorts page"
+            sectionName="Trusted Contributors"
+            hidePreview="the Trusted Contributors names on the public page"
             visible={vis('contributors')}
             onToggleVisible={() => setVis('contributors', !vis('contributors'))}
             collapsed={!!collapsed['contributors']}
             onToggleCollapsed={() => toggleCollapse('contributors')}
           >
+            <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+              Contributor names are machine-translated to Arabic on the public site.
+            </p>
             {(data.contributors ?? []).map((name, i) => (
               <div key={i} className="flex items-end gap-2">
                 <div className="flex-1">
@@ -863,6 +977,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="faqs" title="Frequently Asked Questions"
             hint="Accordion shown on the Shorts page"
+            sectionName="Frequently Asked Questions"
+            hidePreview="the FAQ accordion"
             visible={vis('faqs')}
             onToggleVisible={() => setVis('faqs', !vis('faqs'))}
             collapsed={!!collapsed['faqs']}
@@ -872,9 +988,23 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
               <div key={i} className="flex flex-col gap-2 rounded-lg border border-secondary/30 p-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <Input label="Question (EN)" value={faq.question}      onChange={(e) => { const n=[...data.faqs]; n[i]={...faq,question:e.target.value}; setFaqs(n); }} />
-                  <Input label="Question (AR)" value={faq.questionAr??''} onChange={(e) => { const n=[...data.faqs]; n[i]={...faq,questionAr:e.target.value}; setFaqs(n); }} />
+                  <ArabicField
+                    label="Question (AR)"
+                    statusOnly
+                    englishValue={faq.question}
+                    value={faq.questionAr ?? ''}
+                    onChange={(v) => { const n=[...data.faqs]; n[i]={...faq,questionAr:v}; setFaqs(n); }}
+                  />
                   <Input label="Answer (EN)"   value={faq.answer}        onChange={(e) => { const n=[...data.faqs]; n[i]={...faq,answer:e.target.value}; setFaqs(n); }} />
-                  <Input label="Answer (AR)"   value={faq.answerAr??''}  onChange={(e) => { const n=[...data.faqs]; n[i]={...faq,answerAr:e.target.value}; setFaqs(n); }} />
+                  <ArabicField
+                    label="Answer (AR)"
+                    statusOnly
+                    multiline
+                    rows={3}
+                    englishValue={faq.answer}
+                    value={faq.answerAr ?? ''}
+                    onChange={(v) => { const n=[...data.faqs]; n[i]={...faq,answerAr:v}; setFaqs(n); }}
+                  />
                 </div>
                 <div className="flex justify-end">
                   <button
@@ -900,6 +1030,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="cta" title="Explore More Marriage Support"
             hint="Bottom CTA banner on the Shorts page"
+            sectionName="Explore More Marriage Support"
+            hidePreview="the Explore More Marriage Support banner on the public Shorts page"
             visible={vis('cta')}
             onToggleVisible={() => setVis('cta', !vis('cta'))}
             collapsed={!!collapsed['cta']}
@@ -907,15 +1039,41 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Input label="Title (English)" value={data.shortsCta?.title ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, title: e.target.value } })} />
-              <Input label="Title (Arabic)" value={data.shortsCta?.titleAr ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, titleAr: e.target.value } })} />
+              <ArabicField
+                label="Title (Arabic)"
+                statusOnly
+                englishValue={data.shortsCta?.title ?? ''}
+                value={data.shortsCta?.titleAr ?? ''}
+                onChange={(v) => setField({ shortsCta: { ...data.shortsCta, titleAr: v } })}
+              />
             </div>
             <Textarea label="Description (English)" rows={3} value={data.shortsCta?.text ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, text: e.target.value } })} />
-            <Textarea label="Description (Arabic)" rows={3} value={data.shortsCta?.textAr ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, textAr: e.target.value } })} />
+            <ArabicField
+              label="Description (Arabic)"
+              statusOnly
+              multiline
+              rows={3}
+              englishValue={data.shortsCta?.text ?? ''}
+              value={data.shortsCta?.textAr ?? ''}
+              onChange={(v) => setField({ shortsCta: { ...data.shortsCta, textAr: v } })}
+            />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Input label="Browse Button Label (English)" value={data.shortsCta?.browseLabel ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, browseLabel: e.target.value } })} />
-              <Input label="Browse Button Label (Arabic)" value={data.shortsCta?.browseLabelAr ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, browseLabelAr: e.target.value } })} />
+              <ArabicField
+                label="Browse Button Label (Arabic)"
+                statusOnly
+                englishValue={data.shortsCta?.browseLabel ?? ''}
+                value={data.shortsCta?.browseLabelAr ?? ''}
+                onChange={(v) => setField({ shortsCta: { ...data.shortsCta, browseLabelAr: v } })}
+              />
               <Input label="Explore Button Label (English)" value={data.shortsCta?.exploreLabel ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, exploreLabel: e.target.value } })} />
-              <Input label="Explore Button Label (Arabic)" value={data.shortsCta?.exploreLabelAr ?? ''} onChange={(e) => setField({ shortsCta: { ...data.shortsCta, exploreLabelAr: e.target.value } })} />
+              <ArabicField
+                label="Explore Button Label (Arabic)"
+                statusOnly
+                englishValue={data.shortsCta?.exploreLabel ?? ''}
+                value={data.shortsCta?.exploreLabelAr ?? ''}
+                onChange={(v) => setField({ shortsCta: { ...data.shortsCta, exploreLabelAr: v } })}
+              />
             </div>
           </CollapsibleSection>
         </>
@@ -928,13 +1086,15 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="news-categories" title="Popular Categories"
             hint="Category cards on the News page"
+            sectionName="Popular Categories"
+            hidePreview="the Popular Categories cards on the public News page"
             visible={newsVis('categories')}
             onToggleVisible={() => setNewsVis('categories', !newsVis('categories'))}
             collapsed={!!collapsed['news-categories']}
             onToggleCollapsed={() => toggleCollapse('news-categories')}
           >
             <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
-              The category content is managed via the i18n translation files. Use the visibility toggle above to show or hide this section entirely.
+              The category content is managed via the i18n translation files. The visibility toggle above hides the whole rendered section from the public site.
             </p>
           </CollapsibleSection>
 
@@ -942,6 +1102,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="news-topics" title="Explore Topics"
             hint="Cards shown on the News page"
+            sectionName="Explore Topics"
+            hidePreview="the Explore Topics cards on the public News page"
             visible={newsVis('topics')}
             onToggleVisible={() => setNewsVis('topics', !newsVis('topics'))}
             collapsed={!!collapsed['news-topics']}
@@ -949,16 +1111,31 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           >
             {(data.newsTopics ?? []).map((topic, i) => (
               <div key={i} className="flex flex-col md:flex-row items-end gap-2">
-                <div className="flex-1">
-                  <Input
-                    label={`Topic ${i + 1} — Title`}
-                    value={topic.title}
-                    onChange={(e) => {
-                      const next = [...(data.newsTopics ?? [])];
-                      next[i] = { ...topic, title: e.target.value };
-                      setNewsTopics(next);
-                    }}
-                  />
+                <div className="flex-1 md:flex md:gap-2">
+                  <div className="flex-1">
+                    <Input
+                      label={`Topic ${i + 1} — Title`}
+                      value={topic.title}
+                      onChange={(e) => {
+                        const next = [...(data.newsTopics ?? [])];
+                        next[i] = { ...topic, title: e.target.value };
+                        setNewsTopics(next);
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <ArabicField
+                      label={`Topic ${i + 1} — Title (Arabic)`}
+                      statusOnly
+                      englishValue={topic.title}
+                      value={topic.titleAr ?? ''}
+                      onChange={(v) => {
+                        const next = [...(data.newsTopics ?? [])];
+                        next[i] = { ...topic, titleAr: v };
+                        setNewsTopics(next);
+                      }}
+                    />
+                  </div>
                 </div>
                 <div className="w-full md:w-[160px]">
                   <Input
@@ -990,13 +1167,15 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="news-orgs" title="Featured Organizations"
             hint="Organization cards on the News page"
+            sectionName="Featured Organizations"
+            hidePreview="the Featured Organizations cards on the public News page"
             visible={newsVis('orgs')}
             onToggleVisible={() => setNewsVis('orgs', !newsVis('orgs'))}
             collapsed={!!collapsed['news-orgs']}
             onToggleCollapsed={() => toggleCollapse('news-orgs')}
           >
             <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
-              The organization content is managed via the i18n translation files. Use the visibility toggle above to show or hide this section entirely.
+              The organization content is managed via the i18n translation files. The visibility toggle above hides the whole rendered section from the public site.
             </p>
           </CollapsibleSection>
 
@@ -1004,11 +1183,16 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="news-contributors" title="Trusted Contributors"
             hint="Name cards displayed on the News page"
+            sectionName="Trusted Contributors"
+            hidePreview="the Trusted Contributors names on the public page"
             visible={newsVis('contributors')}
             onToggleVisible={() => setNewsVis('contributors', !newsVis('contributors'))}
             collapsed={!!collapsed['news-contributors']}
             onToggleCollapsed={() => toggleCollapse('news-contributors')}
           >
+            <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+              Contributor names are machine-translated to Arabic on the public site.
+            </p>
             {(data.newsContributors ?? []).map((name, i) => (
               <div key={i} className="flex items-end gap-2">
                 <div className="flex-1">
@@ -1042,6 +1226,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="news-faqs" title="Frequently Asked Questions"
             hint="Accordion shown on the News page"
+            sectionName="Frequently Asked Questions"
+            hidePreview="the FAQ accordion"
             visible={newsVis('faqs')}
             onToggleVisible={() => setNewsVis('faqs', !newsVis('faqs'))}
             collapsed={!!collapsed['news-faqs']}
@@ -1051,9 +1237,23 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
               <div key={i} className="flex flex-col gap-2 rounded-lg border border-secondary/30 p-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <Input label="Question (EN)" value={faq.question}      onChange={(e) => { const n=[...(data.newsFaqs ?? [])]; n[i]={...faq,question:e.target.value}; setNewsFaqs(n); }} />
-                  <Input label="Question (AR)" value={faq.questionAr??''} onChange={(e) => { const n=[...(data.newsFaqs ?? [])]; n[i]={...faq,questionAr:e.target.value}; setNewsFaqs(n); }} />
+                  <ArabicField
+                    label="Question (AR)"
+                    statusOnly
+                    englishValue={faq.question}
+                    value={faq.questionAr ?? ''}
+                    onChange={(v) => { const n=[...(data.newsFaqs ?? [])]; n[i]={...faq,questionAr:v}; setNewsFaqs(n); }}
+                  />
                   <Input label="Answer (EN)"   value={faq.answer}        onChange={(e) => { const n=[...(data.newsFaqs ?? [])]; n[i]={...faq,answer:e.target.value}; setNewsFaqs(n); }} />
-                  <Input label="Answer (AR)"   value={faq.answerAr??''}  onChange={(e) => { const n=[...(data.newsFaqs ?? [])]; n[i]={...faq,answerAr:e.target.value}; setNewsFaqs(n); }} />
+                  <ArabicField
+                    label="Answer (AR)"
+                    statusOnly
+                    multiline
+                    rows={3}
+                    englishValue={faq.answer}
+                    value={faq.answerAr ?? ''}
+                    onChange={(v) => { const n=[...(data.newsFaqs ?? [])]; n[i]={...faq,answerAr:v}; setNewsFaqs(n); }}
+                  />
                 </div>
                 <div className="flex justify-end">
                   <button
@@ -1079,6 +1279,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="news-cta" title="Explore More Resources"
             hint="Bottom CTA banner on the News page"
+            sectionName="Explore More Resources"
+            hidePreview="the Explore More Resources banner on the public News page"
             visible={newsVis('cta')}
             onToggleVisible={() => setNewsVis('cta', !newsVis('cta'))}
             collapsed={!!collapsed['news-cta']}
@@ -1086,7 +1288,7 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           >
             <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
               The text content for this banner (title, description, button labels) is managed via
-              the i18n translation files. Use the visibility toggle above to show or hide it entirely.
+              the i18n translation files. The visibility toggle above hides the whole rendered section from the public site.
             </p>
           </CollapsibleSection>
         </>
@@ -1099,6 +1301,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="init-topics" title="Explore Topics"
             hint="Cards shown on the Initiatives page"
+            sectionName="Explore Topics"
+            hidePreview="the Explore Topics cards on the public Initiatives page"
             visible={initiativesVis('topics')}
             onToggleVisible={() => setInitiativesVis('topics', !initiativesVis('topics'))}
             collapsed={!!collapsed['init-topics']}
@@ -1106,16 +1310,31 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           >
             {(data.initiativesTopics ?? []).map((topic, i) => (
               <div key={i} className="flex flex-col md:flex-row items-end gap-2">
-                <div className="flex-1">
-                  <Input
-                    label={`Topic ${i + 1} — Title`}
-                    value={topic.title}
-                    onChange={(e) => {
-                      const next = [...(data.initiativesTopics ?? [])];
-                      next[i] = { ...topic, title: e.target.value };
-                      setInitiativesTopics(next);
-                    }}
-                  />
+                <div className="flex-1 md:flex md:gap-2">
+                  <div className="flex-1">
+                    <Input
+                      label={`Topic ${i + 1} — Title`}
+                      value={topic.title}
+                      onChange={(e) => {
+                        const next = [...(data.initiativesTopics ?? [])];
+                        next[i] = { ...topic, title: e.target.value };
+                        setInitiativesTopics(next);
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <ArabicField
+                      label={`Topic ${i + 1} — Title (Arabic)`}
+                      statusOnly
+                      englishValue={topic.title}
+                      value={topic.titleAr ?? ''}
+                      onChange={(v) => {
+                        const next = [...(data.initiativesTopics ?? [])];
+                        next[i] = { ...topic, titleAr: v };
+                        setInitiativesTopics(next);
+                      }}
+                    />
+                  </div>
                 </div>
                 <div className="w-full md:w-[160px]">
                   <Input
@@ -1147,11 +1366,16 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="init-contributors" title="Trusted Contributors"
             hint="Name cards displayed on the Initiatives page"
+            sectionName="Trusted Contributors"
+            hidePreview="the Trusted Contributors names on the public page"
             visible={initiativesVis('contributors')}
             onToggleVisible={() => setInitiativesVis('contributors', !initiativesVis('contributors'))}
             collapsed={!!collapsed['init-contributors']}
             onToggleCollapsed={() => toggleCollapse('init-contributors')}
           >
+            <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+              Contributor names are machine-translated to Arabic on the public site.
+            </p>
             {(data.initiativesContributors ?? []).map((name, i) => (
               <div key={i} className="flex items-end gap-2">
                 <div className="flex-1">
@@ -1185,6 +1409,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="init-faqs" title="Frequently Asked Questions"
             hint="Accordion shown on the Initiatives page"
+            sectionName="Frequently Asked Questions"
+            hidePreview="the FAQ accordion"
             visible={initiativesVis('faqs')}
             onToggleVisible={() => setInitiativesVis('faqs', !initiativesVis('faqs'))}
             collapsed={!!collapsed['init-faqs']}
@@ -1194,9 +1420,23 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
               <div key={i} className="flex flex-col gap-2 rounded-lg border border-secondary/30 p-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <Input label="Question (EN)" value={faq.question}      onChange={(e) => { const n=[...(data.initiativesFaqs ?? [])]; n[i]={...faq,question:e.target.value}; setInitiativesFaqs(n); }} />
-                  <Input label="Question (AR)" value={faq.questionAr??''} onChange={(e) => { const n=[...(data.initiativesFaqs ?? [])]; n[i]={...faq,questionAr:e.target.value}; setInitiativesFaqs(n); }} />
+                  <ArabicField
+                    label="Question (AR)"
+                    statusOnly
+                    englishValue={faq.question}
+                    value={faq.questionAr ?? ''}
+                    onChange={(v) => { const n=[...(data.initiativesFaqs ?? [])]; n[i]={...faq,questionAr:v}; setInitiativesFaqs(n); }}
+                  />
                   <Input label="Answer (EN)"   value={faq.answer}        onChange={(e) => { const n=[...(data.initiativesFaqs ?? [])]; n[i]={...faq,answer:e.target.value}; setInitiativesFaqs(n); }} />
-                  <Input label="Answer (AR)"   value={faq.answerAr??''}  onChange={(e) => { const n=[...(data.initiativesFaqs ?? [])]; n[i]={...faq,answerAr:e.target.value}; setInitiativesFaqs(n); }} />
+                  <ArabicField
+                    label="Answer (AR)"
+                    statusOnly
+                    multiline
+                    rows={3}
+                    englishValue={faq.answer}
+                    value={faq.answerAr ?? ''}
+                    onChange={(v) => { const n=[...(data.initiativesFaqs ?? [])]; n[i]={...faq,answerAr:v}; setInitiativesFaqs(n); }}
+                  />
                 </div>
                 <div className="flex justify-end">
                   <button
@@ -1222,6 +1462,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="init-cta" title="Explore More Initiatives"
             hint="Bottom CTA banner on the Initiatives page"
+            sectionName="Explore More Initiatives"
+            hidePreview="the Explore More Initiatives banner on the public Initiatives page"
             visible={initiativesVis('cta')}
             onToggleVisible={() => setInitiativesVis('cta', !initiativesVis('cta'))}
             collapsed={!!collapsed['init-cta']}
@@ -1229,7 +1471,7 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           >
             <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
               The text content for this banner (title, description, button labels) is managed via
-              the i18n translation files. Use the visibility toggle above to show or hide it entirely.
+              the i18n translation files. The visibility toggle above hides the whole rendered section from the public site.
             </p>
           </CollapsibleSection>
         </>
@@ -1242,6 +1484,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="cons-topics" title="Explore Topics"
             hint="Cards shown on the Consultation page"
+            sectionName="Explore Topics"
+            hidePreview="the Explore Topics cards on the public Consultation page"
             visible={consultationVis('topics')}
             onToggleVisible={() => setConsultationVis('topics', !consultationVis('topics'))}
             collapsed={!!collapsed['cons-topics']}
@@ -1262,12 +1506,14 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
                     />
                   </div>
                   <div className="flex-1">
-                    <Input
-                      label={`Title (AR)`}
+                    <ArabicField
+                      label={`Topic ${i + 1} — Title (AR)`}
+                      statusOnly
+                      englishValue={topic.title}
                       value={topic.titleAr ?? ''}
-                      onChange={(e) => {
+                      onChange={(v) => {
                         const next = [...(data.consultationTopics ?? [])];
-                        next[i] = { ...topic, titleAr: e.target.value };
+                        next[i] = { ...topic, titleAr: v };
                         setConsultationTopics(next);
                       }}
                     />
@@ -1303,11 +1549,16 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="cons-contributors" title="Trusted Contributors"
             hint="Name cards displayed on the Consultation page"
+            sectionName="Trusted Contributors"
+            hidePreview="the Trusted Contributors names on the public page"
             visible={consultationVis('contributors')}
             onToggleVisible={() => setConsultationVis('contributors', !consultationVis('contributors'))}
             collapsed={!!collapsed['cons-contributors']}
             onToggleCollapsed={() => toggleCollapse('cons-contributors')}
           >
+            <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+              Contributor names are machine-translated to Arabic on the public site.
+            </p>
             {(data.consultationContributors ?? []).map((name, i) => (
               <div key={i} className="flex items-end gap-2">
                 <div className="flex-1">
@@ -1341,6 +1592,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="cons-faqs" title="Frequently Asked Questions"
             hint="Accordion shown on the Consultation page"
+            sectionName="Frequently Asked Questions"
+            hidePreview="the FAQ accordion"
             visible={consultationVis('faqs')}
             onToggleVisible={() => setConsultationVis('faqs', !consultationVis('faqs'))}
             collapsed={!!collapsed['cons-faqs']}
@@ -1350,9 +1603,23 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
               <div key={i} className="flex flex-col gap-2 rounded-lg border border-secondary/30 p-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <Input label="Question (EN)" value={faq.question}      onChange={(e) => { const n=[...(data.consultationFaqs ?? [])]; n[i]={...faq,question:e.target.value}; setConsultationFaqs(n); }} />
-                  <Input label="Question (AR)" value={faq.questionAr??''} onChange={(e) => { const n=[...(data.consultationFaqs ?? [])]; n[i]={...faq,questionAr:e.target.value}; setConsultationFaqs(n); }} />
+                  <ArabicField
+                    label="Question (AR)"
+                    statusOnly
+                    englishValue={faq.question}
+                    value={faq.questionAr ?? ''}
+                    onChange={(v) => { const n=[...(data.consultationFaqs ?? [])]; n[i]={...faq,questionAr:v}; setConsultationFaqs(n); }}
+                  />
                   <Input label="Answer (EN)"   value={faq.answer}        onChange={(e) => { const n=[...(data.consultationFaqs ?? [])]; n[i]={...faq,answer:e.target.value}; setConsultationFaqs(n); }} />
-                  <Input label="Answer (AR)"   value={faq.answerAr??''}  onChange={(e) => { const n=[...(data.consultationFaqs ?? [])]; n[i]={...faq,answerAr:e.target.value}; setConsultationFaqs(n); }} />
+                  <ArabicField
+                    label="Answer (AR)"
+                    statusOnly
+                    multiline
+                    rows={3}
+                    englishValue={faq.answer}
+                    value={faq.answerAr ?? ''}
+                    onChange={(v) => { const n=[...(data.consultationFaqs ?? [])]; n[i]={...faq,answerAr:v}; setConsultationFaqs(n); }}
+                  />
                 </div>
                 <div className="flex justify-end">
                   <button
@@ -1378,6 +1645,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="cons-cta" title="Explore More Consultations"
             hint="Bottom CTA banner on the Consultation page"
+            sectionName="Explore More Consultations"
+            hidePreview="the Explore More Consultations banner on the public Consultation page"
             visible={consultationVis('cta')}
             onToggleVisible={() => setConsultationVis('cta', !consultationVis('cta'))}
             collapsed={!!collapsed['cons-cta']}
@@ -1385,7 +1654,7 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           >
             <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
               The text content for this banner (title, description, button labels) is managed via
-              the i18n translation files. Use the visibility toggle above to show or hide it entirely.
+              the i18n translation files. The visibility toggle above hides the whole rendered section from the public site.
             </p>
           </CollapsibleSection>
         </>
@@ -1398,6 +1667,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="em-topics" title="Explore Topics"
             hint="Cards shown on the Emirates page"
+            sectionName="Explore Topics"
+            hidePreview="the Explore Topics cards on the public Emirates page"
             visible={emiratesVis('topics')}
             onToggleVisible={() => setEmiratesVis('topics', !emiratesVis('topics'))}
             collapsed={!!collapsed['em-topics']}
@@ -1418,12 +1689,14 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
                     />
                   </div>
                   <div className="flex-1">
-                    <Input
-                      label={`Title (AR)`}
+                    <ArabicField
+                      label={`Topic ${i + 1} — Title (AR)`}
+                      statusOnly
+                      englishValue={topic.title}
                       value={topic.titleAr ?? ''}
-                      onChange={(e) => {
+                      onChange={(v) => {
                         const next = [...(data.emiratesTopics ?? [])];
-                        next[i] = { ...topic, titleAr: e.target.value };
+                        next[i] = { ...topic, titleAr: v };
                         setEmiratesTopics(next);
                       }}
                     />
@@ -1459,11 +1732,16 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="em-contributors" title="Trusted Contributors"
             hint="Name cards displayed on the Emirates page"
+            sectionName="Trusted Contributors"
+            hidePreview="the Trusted Contributors names on the public page"
             visible={emiratesVis('contributors')}
             onToggleVisible={() => setEmiratesVis('contributors', !emiratesVis('contributors'))}
             collapsed={!!collapsed['em-contributors']}
             onToggleCollapsed={() => toggleCollapse('em-contributors')}
           >
+            <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+              Contributor names are machine-translated to Arabic on the public site.
+            </p>
             {(data.emiratesContributors ?? []).map((name, i) => (
               <div key={i} className="flex items-end gap-2">
                 <div className="flex-1">
@@ -1497,6 +1775,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="em-faqs" title="Frequently Asked Questions"
             hint="Accordion shown on the Emirates page"
+            sectionName="Frequently Asked Questions"
+            hidePreview="the FAQ accordion"
             visible={emiratesVis('faqs')}
             onToggleVisible={() => setEmiratesVis('faqs', !emiratesVis('faqs'))}
             collapsed={!!collapsed['em-faqs']}
@@ -1506,9 +1786,23 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
               <div key={i} className="flex flex-col gap-2 rounded-lg border border-secondary/30 p-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <Input label="Question (EN)" value={faq.question}      onChange={(e) => { const n=[...(data.emiratesFaqs ?? [])]; n[i]={...faq,question:e.target.value}; setEmiratesFaqs(n); }} />
-                  <Input label="Question (AR)" value={faq.questionAr??''} onChange={(e) => { const n=[...(data.emiratesFaqs ?? [])]; n[i]={...faq,questionAr:e.target.value}; setEmiratesFaqs(n); }} />
+                  <ArabicField
+                    label="Question (AR)"
+                    statusOnly
+                    englishValue={faq.question}
+                    value={faq.questionAr ?? ''}
+                    onChange={(v) => { const n=[...(data.emiratesFaqs ?? [])]; n[i]={...faq,questionAr:v}; setEmiratesFaqs(n); }}
+                  />
                   <Input label="Answer (EN)"   value={faq.answer}        onChange={(e) => { const n=[...(data.emiratesFaqs ?? [])]; n[i]={...faq,answer:e.target.value}; setEmiratesFaqs(n); }} />
-                  <Input label="Answer (AR)"   value={faq.answerAr??''}  onChange={(e) => { const n=[...(data.emiratesFaqs ?? [])]; n[i]={...faq,answerAr:e.target.value}; setEmiratesFaqs(n); }} />
+                  <ArabicField
+                    label="Answer (AR)"
+                    statusOnly
+                    multiline
+                    rows={3}
+                    englishValue={faq.answer}
+                    value={faq.answerAr ?? ''}
+                    onChange={(v) => { const n=[...(data.emiratesFaqs ?? [])]; n[i]={...faq,answerAr:v}; setEmiratesFaqs(n); }}
+                  />
                 </div>
                 <div className="flex justify-end">
                   <button
@@ -1534,6 +1828,8 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           <CollapsibleSection
             id="em-cta" title="Explore More Emirates"
             hint="Bottom CTA banner on the Emirates page"
+            sectionName="Explore More Emirates"
+            hidePreview="the Explore More Emirates banner on the public Emirates page"
             visible={emiratesVis('cta')}
             onToggleVisible={() => setEmiratesVis('cta', !emiratesVis('cta'))}
             collapsed={!!collapsed['em-cta']}
@@ -1541,7 +1837,7 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
           >
             <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
               The text content for this banner (title, description, button labels) is managed via
-              the i18n translation files. Use the visibility toggle above to show or hide it entirely.
+              the i18n translation files. The visibility toggle above hides the whole rendered section from the public site.
             </p>
           </CollapsibleSection>
         </>
@@ -1560,5 +1856,6 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
         </Button>
       </div>
     </div>
+    </TranslationProvider>
   );
 }

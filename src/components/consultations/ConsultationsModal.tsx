@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type ChangeEvent } from 'react';
+import { useCallback, useState, useEffect, type ChangeEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
@@ -8,10 +8,15 @@ import Textarea from '@/components/shared/Textarea';
 import Button from '@/components/shared/Button';
 import Select from '@/components/shared/Select';
 import CollapsibleSection from '@/components/shared/CollapsibleSection';
+import StatusField from '@/components/shared/StatusField';
+import ArabicField from '@/components/shared/ArabicField';
+import TranslationProvider from '@/components/shared/TranslationProvider';
+import TranslationToolbar from '@/components/shared/TranslationToolbar';
+import { getConsultation } from '@/lib/services/consultations';
+import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
 import {
   EMIRATES_OPTIONS,
   SESSION_TYPE_OPTIONS,
-  STATUS_OPTIONS,
   MARITAL_STAGE_OPTIONS,
   LANGUAGE_OPTIONS,
 } from '@/lib/constants';
@@ -122,16 +127,21 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
   const [discount, setDiscount] = useState('');
   const [maxParticipants, setMaxParticipants] = useState('');
   const [counselor, setCounselor] = useState('');
+  const [counselorAr, setCounselorAr] = useState('');
   const [counselorPhoto, setCounselorPhoto] = useState('');
   const [counselorTitle, setCounselorTitle] = useState('');
+  const [counselorTitleAr, setCounselorTitleAr] = useState('');
   const [counselorBio, setCounselorBio] = useState('');
+  const [counselorBioAr, setCounselorBioAr] = useState('');
   const [gallery, setGallery] = useState('');
   const [description, setDescription] = useState('');
+  const [descriptionAr, setDescriptionAr] = useState('');
   const [objectives, setObjectives] = useState('');
   const [whatYouWillLearn, setWhatYouWillLearn] = useState('');
   const [whoShouldAttend, setWhoShouldAttend] = useState('');
   const [schedule, setSchedule] = useState('');
   const [bookingNotice, setBookingNotice] = useState('');
+  const [bookingNoticeAr, setBookingNoticeAr] = useState('');
   const [showDoctor, setShowDoctor] = useState(true);
   const [showLearnMore, setShowLearnMore] = useState(true);
   const [showGallery, setShowGallery] = useState(true);
@@ -140,6 +150,8 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
   const [isBookable, setIsBookable] = useState(true);
   const [status, setStatus] = useState('Draft');
   const [error, setError] = useState('');
+  const [machineFlags, setMachineFlags] = useState<Record<string, boolean>>({});
+  const [failedFields, setFailedFields] = useState<Set<string>>(new Set());
   const [openSections, setOpenSections] = useState<Record<ConsultationSectionKey, boolean>>(initialSections);
 
   const coverImage = (consultation?.gallery && Array.isArray(consultation.gallery) && consultation.gallery[0]) || gallery;
@@ -167,16 +179,21 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
       setDiscount(consultation.discount != null ? String(consultation.discount) : '');
       setMaxParticipants(consultation.maxParticipants != null ? String(consultation.maxParticipants) : '');
       setCounselor(consultation.counselor || '');
+      setCounselorAr(consultation.counselorAr || '');
       setCounselorPhoto(consultation.counselorPhoto || '');
       setCounselorTitle(consultation.counselorTitle || '');
+      setCounselorTitleAr(consultation.counselorTitleAr || '');
       setCounselorBio(consultation.counselorBio || '');
+      setCounselorBioAr(consultation.counselorBioAr || '');
       setGallery(Array.isArray(consultation.gallery) && consultation.gallery[0] ? consultation.gallery[0] : '');
       setDescription(consultation.description || '');
+      setDescriptionAr(consultation.descriptionAr || '');
       setObjectives(joinLines(consultation.objectives));
       setWhatYouWillLearn(joinLines(consultation.whatYouWillLearn));
       setWhoShouldAttend(joinLines(consultation.whoShouldAttend));
       setSchedule(typeof consultation.schedule === 'string' ? consultation.schedule : '');
       setBookingNotice(consultation.bookingNotice || '');
+      setBookingNoticeAr(consultation.bookingNoticeAr || '');
       setShowDoctor(consultation.showDoctor ?? true);
       setShowLearnMore(consultation.showLearnMore ?? true);
       setShowGallery(consultation.showGallery ?? true);
@@ -184,6 +201,15 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
       setShowBooking(consultation.showBooking ?? true);
       setIsBookable(consultation.isBookable ?? true);
       setStatus(consultation.status || 'Draft');
+      setMachineFlags({
+        sessionTitleAr: getIsMachineFlag(consultation, 'sessionTitleAr'),
+        counselorAr: getIsMachineFlag(consultation, 'counselorAr'),
+        counselorTitleAr: getIsMachineFlag(consultation, 'counselorTitleAr'),
+        counselorBioAr: getIsMachineFlag(consultation, 'counselorBioAr'),
+        descriptionAr: getIsMachineFlag(consultation, 'descriptionAr'),
+        bookingNoticeAr: getIsMachineFlag(consultation, 'bookingNoticeAr'),
+      });
+      setFailedFields(new Set());
     } else {
       setSessionTitle('');
       setSessionTitleAr('');
@@ -206,16 +232,21 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
       setDiscount('');
       setMaxParticipants('');
       setCounselor('');
+      setCounselorAr('');
       setCounselorPhoto('');
       setCounselorTitle('');
+      setCounselorTitleAr('');
       setCounselorBio('');
+      setCounselorBioAr('');
       setGallery('');
       setDescription('');
+      setDescriptionAr('');
       setObjectives('');
       setWhatYouWillLearn('');
       setWhoShouldAttend('');
       setSchedule('');
       setBookingNotice('');
+      setBookingNoticeAr('');
       setShowDoctor(true);
       setShowLearnMore(true);
       setShowGallery(true);
@@ -223,6 +254,8 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
       setShowBooking(true);
       setIsBookable(true);
       setStatus('Draft');
+      setMachineFlags({});
+      setFailedFields(new Set());
     }
 
     setError('');
@@ -284,15 +317,20 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
       discount: discount !== '' ? Number(discount) : undefined,
       maxParticipants: maxParticipants ? Number(maxParticipants) : undefined,
       counselor: counselor.trim() || undefined,
+      counselorAr: counselorAr.trim() || undefined,
       counselorPhoto: counselorPhoto.trim() || undefined,
       counselorTitle: counselorTitle.trim() || undefined,
+      counselorTitleAr: counselorTitleAr.trim() || undefined,
       counselorBio: counselorBio.trim() || undefined,
+      counselorBioAr: counselorBioAr.trim() || undefined,
       gallery: galleryValue,
       description: description.trim() || undefined,
+      descriptionAr: descriptionAr.trim() || undefined,
       objectives: splitLines(objectives),
       whatYouWillLearn: splitLines(whatYouWillLearn),
       whoShouldAttend: splitLines(whoShouldAttend),
       bookingNotice: bookingNotice.trim() || undefined,
+      bookingNoticeAr: bookingNoticeAr.trim() || undefined,
       showDoctor,
       showLearnMore,
       showGallery,
@@ -312,6 +350,43 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
     }
   }
 
+  // Reload the record after a retranslation and refresh the per-field status.
+  const reloadTranslations = useCallback(async () => {
+    if (!consultation) return;
+    const fresh = await getConsultation(consultation.id);
+    setSessionTitleAr(fresh.sessionTitleAr || '');
+    setCounselorAr(fresh.counselorAr || '');
+    setCounselorTitleAr(fresh.counselorTitleAr || '');
+    setCounselorBioAr(fresh.counselorBioAr || '');
+    setDescriptionAr(fresh.descriptionAr || '');
+    setBookingNoticeAr(fresh.bookingNoticeAr || '');
+    setMachineFlags({
+      sessionTitleAr: getIsMachineFlag(fresh, 'sessionTitleAr'),
+      counselorAr: getIsMachineFlag(fresh, 'counselorAr'),
+      counselorTitleAr: getIsMachineFlag(fresh, 'counselorTitleAr'),
+      counselorBioAr: getIsMachineFlag(fresh, 'counselorBioAr'),
+      descriptionAr: getIsMachineFlag(fresh, 'descriptionAr'),
+      bookingNoticeAr: getIsMachineFlag(fresh, 'bookingNoticeAr'),
+    });
+    const failed = new Set<string>();
+    if ((fresh.sessionTitle || '').trim() && !(fresh.sessionTitleAr || '').trim()) failed.add('sessionTitleAr');
+    if ((fresh.counselor || '').trim() && !(fresh.counselorAr || '').trim()) failed.add('counselorAr');
+    if ((fresh.counselorTitle || '').trim() && !(fresh.counselorTitleAr || '').trim()) failed.add('counselorTitleAr');
+    if ((fresh.counselorBio || '').trim() && !(fresh.counselorBioAr || '').trim()) failed.add('counselorBioAr');
+    if ((fresh.description || '').trim() && !(fresh.descriptionAr || '').trim()) failed.add('descriptionAr');
+    if ((fresh.bookingNotice || '').trim() && !(fresh.bookingNoticeAr || '').trim()) failed.add('bookingNoticeAr');
+    setFailedFields(failed);
+  }, [consultation]);
+
+  const translationStates: TranslationState[] = [
+    getTranslationState(sessionTitle, sessionTitleAr, machineFlags.sessionTitleAr, failedFields.has('sessionTitleAr')),
+    getTranslationState(counselor, counselorAr, machineFlags.counselorAr, failedFields.has('counselorAr')),
+    getTranslationState(counselorTitle, counselorTitleAr, machineFlags.counselorTitleAr, failedFields.has('counselorTitleAr')),
+    getTranslationState(counselorBio, counselorBioAr, machineFlags.counselorBioAr, failedFields.has('counselorBioAr')),
+    getTranslationState(description, descriptionAr, machineFlags.descriptionAr, failedFields.has('descriptionAr')),
+    getTranslationState(bookingNotice, bookingNoticeAr, machineFlags.bookingNoticeAr, failedFields.has('bookingNoticeAr')),
+  ];
+
   const footer = (
     <div className="flex justify-center gap-4">
       <Button variant="secondary" onClick={onClose} disabled={isPending}>Cancel</Button>
@@ -329,9 +404,12 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
   );
 
   return (
+    <TranslationProvider model="consultation" id={consultation?.id} onTranslated={reloadTranslations}>
     <Modal isOpen={isOpen} onClose={onClose} title={consultation ? 'Edit Consultation Session' : 'Add Consultation Session'} footer={footer}>
       <div className="flex flex-col gap-8">
         {error && <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>}
+
+        <TranslationToolbar states={translationStates} title={sessionTitle || undefined} />
 
         {/* Titles stay visible at the top */}
         <div className="flex gap-8">
@@ -339,7 +417,15 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
             <Input label="Session Title" required placeholder="Session title (English)" value={sessionTitle} onChange={(e) => setSessionTitle(e.target.value)} />
           </div>
           <div className="flex-1">
-            <Input label="Session Title (Arabic)" placeholder="عنوان الجلسة" value={sessionTitleAr} onChange={(e) => setSessionTitleAr(e.target.value)} />
+            <ArabicField
+              label="Session Title (Arabic)"
+              placeholder="عنوان الجلسة"
+              englishValue={sessionTitle}
+              value={sessionTitleAr}
+              onChange={setSessionTitleAr}
+              isMachine={machineFlags.sessionTitleAr}
+              failed={failedFields.has('sessionTitleAr')}
+            />
           </div>
         </div>
 
@@ -434,6 +520,20 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
           <div>
             <Input label="Booking Notice" placeholder="Optional notice shown at booking" value={bookingNotice} onChange={(e) => setBookingNotice(e.target.value)} />
           </div>
+
+          <div>
+            <ArabicField
+              label="Booking Notice (Arabic)"
+              placeholder="ملاحظة الحجز"
+              multiline
+              rows={3}
+              englishValue={bookingNotice}
+              value={bookingNoticeAr}
+              onChange={setBookingNoticeAr}
+              isMachine={machineFlags.bookingNoticeAr}
+              failed={failedFields.has('bookingNoticeAr')}
+            />
+          </div>
         </CollapsibleSection>
 
         <CollapsibleSection title="Counselor" hint="Session host" isOpen={openSections.counselor} onToggle={() => toggleSection('counselor')}>
@@ -442,11 +542,37 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
               <FileUpload value={coverImage} label="Upload Session Image" isUploading={upload.isPending} onUpload={handleCoverFile} />
             </div>
             <div className="flex-1 flex flex-col gap-4">
-              <div>
-                <Input label="Counselor Name" placeholder="Enter counselor name" value={counselor} onChange={(e) => setCounselor(e.target.value)} />
+              <div className="flex gap-8">
+                <div className="flex-1">
+                  <Input label="Counselor Name" placeholder="Enter counselor name" value={counselor} onChange={(e) => setCounselor(e.target.value)} />
+                </div>
+                <div className="flex-1">
+                  <ArabicField
+                    label="Counselor Name (Arabic)"
+                    placeholder="اسم المستشار"
+                    englishValue={counselor}
+                    value={counselorAr}
+                    onChange={setCounselorAr}
+                    isMachine={machineFlags.counselorAr}
+                    failed={failedFields.has('counselorAr')}
+                  />
+                </div>
               </div>
-              <div>
-                <Input label="Counselor Title" placeholder="e.g. Family Counselor" value={counselorTitle} onChange={(e) => setCounselorTitle(e.target.value)} />
+              <div className="flex gap-8">
+                <div className="flex-1">
+                  <Input label="Counselor Title" placeholder="e.g. Family Counselor" value={counselorTitle} onChange={(e) => setCounselorTitle(e.target.value)} />
+                </div>
+                <div className="flex-1">
+                  <ArabicField
+                    label="Counselor Title (Arabic)"
+                    placeholder="المسمى الوظيفي للمستشار"
+                    englishValue={counselorTitle}
+                    value={counselorTitleAr}
+                    onChange={setCounselorTitleAr}
+                    isMachine={machineFlags.counselorTitleAr}
+                    failed={failedFields.has('counselorTitleAr')}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -466,11 +592,39 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
               <Textarea label="Counselor Bio" placeholder="Counselor biography" rows={5} className="h-full" value={counselorBio} onChange={(e) => setCounselorBio(e.target.value)} />
             </div>
           </div>
+
+          <div>
+            <ArabicField
+              label="Counselor Bio (Arabic)"
+              placeholder="نبذة عن المستشار"
+              multiline
+              rows={5}
+              englishValue={counselorBio}
+              value={counselorBioAr}
+              onChange={setCounselorBioAr}
+              isMachine={machineFlags.counselorBioAr}
+              failed={failedFields.has('counselorBioAr')}
+            />
+          </div>
         </CollapsibleSection>
 
         <CollapsibleSection title="Content" hint="Description and objectives" isOpen={openSections.content} onToggle={() => toggleSection('content')}>
           <div>
             <Textarea label="Description" placeholder="Enter session description" rows={5} className="h-[149px]" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+
+          <div>
+            <ArabicField
+              label="Description (Arabic)"
+              placeholder="وصف الجلسة"
+              multiline
+              rows={5}
+              englishValue={description}
+              value={descriptionAr}
+              onChange={setDescriptionAr}
+              isMachine={machineFlags.descriptionAr}
+              failed={failedFields.has('descriptionAr')}
+            />
           </div>
 
           <div>
@@ -510,12 +664,13 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
 
           <div className="flex gap-8">
             <div className="flex-1">
-              <Select label="Status" options={STATUS_OPTIONS} value={status} onChange={(e) => setStatus(e.target.value)} />
+              <StatusField value={status} onChange={setStatus} />
             </div>
             <div className="flex-1" />
           </div>
         </CollapsibleSection>
       </div>
     </Modal>
+    </TranslationProvider>
   );
 }

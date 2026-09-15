@@ -1,23 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Select from '@/components/shared/Select';
 import Button from '@/components/shared/Button';
+import StatusField from '@/components/shared/StatusField';
+import ArabicField from '@/components/shared/ArabicField';
+import TranslationProvider from '@/components/shared/TranslationProvider';
+import TranslationToolbar from '@/components/shared/TranslationToolbar';
 import {
   EMIRATES_OPTIONS,
   LANGUAGE_OPTIONS,
   NEWS_CATEGORY_OPTIONS,
   NEWS_SOURCE_OPTIONS,
-  STATUS_OPTIONS,
 } from '@/lib/constants';
 import { useCreateNewsArticle, useUpdateNewsArticle } from '@/hooks/useNewsArticles';
 import { useUpload } from '@/hooks/useMeta';
 import { getErrorMessage } from '@/lib/api-client';
 import CollapsibleSection from '@/components/shared/CollapsibleSection';
+import { getNewsArticle } from '@/lib/services/news';
+import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
 import type { NewsArticle } from '@/types/news';
 
 interface NewsModalProps {
@@ -89,6 +94,8 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
   });
   const [status, setStatus] = useState('Draft');
   const [error, setError] = useState('');
+  const [machineFlags, setMachineFlags] = useState<Record<string, boolean>>({});
+  const [failedFields, setFailedFields] = useState<Set<string>>(new Set());
   const [openSections, setOpenSections] = useState<Record<NewsSectionKey, boolean>>(initialSections);
 
   function toggleSection(key: NewsSectionKey) {
@@ -114,6 +121,12 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
       setEmirate(article.emirate || '');
       setPublishedDate(article.publishedDate || '');
       setUpdatedDate(article.updatedDate || '');
+      setMachineFlags({
+        articleTitleAr: getIsMachineFlag(article, 'articleTitleAr'),
+        contentAr: getIsMachineFlag(article, 'contentAr'),
+        authorAr: getIsMachineFlag(article, 'authorAr'),
+      });
+      setFailedFields(new Set());
       setResources(article.resources?.length ? article.resources as NewsResource[] : emptyResources);
       setShareUrl(article.shareUrl || '');
       setToggles({
@@ -141,6 +154,8 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
       setEmirate('');
       setPublishedDate('');
       setUpdatedDate('');
+      setMachineFlags({});
+      setFailedFields(new Set());
       setResources(emptyResources);
       setShareUrl('');
       setToggles({
@@ -214,6 +229,31 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
     }
   }, [mutation.isError, mutation.error]);
 
+  // Reload the record after a retranslation and refresh the per-field status.
+  const reloadTranslations = useCallback(async () => {
+    if (!article) return;
+    const fresh = await getNewsArticle(article.id);
+    setArticleTitleAr(fresh.articleTitleAr || '');
+    setContentAr(fresh.contentAr || '');
+    setAuthorAr(fresh.authorAr || '');
+    setMachineFlags({
+      articleTitleAr: getIsMachineFlag(fresh, 'articleTitleAr'),
+      contentAr: getIsMachineFlag(fresh, 'contentAr'),
+      authorAr: getIsMachineFlag(fresh, 'authorAr'),
+    });
+    const failed = new Set<string>();
+    if ((fresh.articleTitle || '').trim() && !(fresh.articleTitleAr || '').trim()) failed.add('articleTitleAr');
+    if ((fresh.content || '').trim() && !(fresh.contentAr || '').trim()) failed.add('contentAr');
+    if ((fresh.author || '').trim() && !(fresh.authorAr || '').trim()) failed.add('authorAr');
+    setFailedFields(failed);
+  }, [article]);
+
+  const translationStates: TranslationState[] = [
+    getTranslationState(articleTitle, articleTitleAr, machineFlags.articleTitleAr, failedFields.has('articleTitleAr')),
+    getTranslationState(content, contentAr, machineFlags.contentAr, failedFields.has('contentAr')),
+    getTranslationState(author, authorAr, machineFlags.authorAr, failedFields.has('authorAr')),
+  ];
+
   const footer = (
     <div className="flex justify-center gap-4">
       <Button variant="secondary" onClick={onClose} disabled={isPending}>
@@ -226,18 +266,29 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
   );
 
   return (
+    <TranslationProvider model="news" id={article?.id} onTranslated={reloadTranslations}>
     <Modal isOpen={isOpen} onClose={onClose} title={article ? 'Edit News Article' : 'Add News Article'} footer={footer}>
       <div className="flex flex-col gap-8">
         {error && (
           <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>
         )}
 
+        <TranslationToolbar states={translationStates} title={articleTitle || undefined} />
+
         <div className="flex gap-8">
           <div className="flex-1">
             <Input label="Article Title" required placeholder="Enter article title" value={articleTitle} onChange={(e) => setArticleTitle(e.target.value)} />
           </div>
           <div className="flex-1">
-            <Input label="Article Title (Arabic)" placeholder="عنوان المقال" value={articleTitleAr} onChange={(e) => setArticleTitleAr(e.target.value)} />
+            <ArabicField
+              label="Article Title (Arabic)"
+              placeholder="عنوان المقال"
+              englishValue={articleTitle}
+              value={articleTitleAr}
+              onChange={setArticleTitleAr}
+              isMachine={machineFlags.articleTitleAr}
+              failed={failedFields.has('articleTitleAr')}
+            />
           </div>
         </div>
 
@@ -290,7 +341,15 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
               <Input label="Author" placeholder="Author name" value={author} onChange={(e) => setAuthor(e.target.value)} />
             </div>
             <div className="flex-1">
-              <Input label="Author (Arabic)" placeholder="اسم المؤلف" value={authorAr} onChange={(e) => setAuthorAr(e.target.value)} />
+              <ArabicField
+                label="Author (Arabic)"
+                placeholder="اسم المؤلف"
+                englishValue={author}
+                value={authorAr}
+                onChange={setAuthorAr}
+                isMachine={machineFlags.authorAr}
+                failed={failedFields.has('authorAr')}
+              />
             </div>
           </div>
 
@@ -317,7 +376,7 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
               <Select label="Emirate" options={EMIRATES_OPTIONS} placeholder="Select emirate" value={emirate} onChange={(e) => setEmirate(e.target.value)} />
             </div>
             <div className="flex-1">
-              <Select label="Status" options={STATUS_OPTIONS} value={status} onChange={(e) => setStatus(e.target.value)} />
+              <StatusField value={status} onChange={setStatus} />
             </div>
           </div>
 
@@ -333,13 +392,16 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
             />
           </div>
           <div>
-            <Textarea
+            <ArabicField
               label="Content (Arabic)"
               placeholder="محتوى المقال (اختياري — سيتم الترجمة تلقائياً إن ترك فارغاً)"
+              multiline
               rows={6}
-              className="h-[180px]"
+              englishValue={content}
               value={contentAr}
-              onChange={(e) => setContentAr(e.target.value)}
+              onChange={setContentAr}
+              isMachine={machineFlags.contentAr}
+              failed={failedFields.has('contentAr')}
             />
           </div>
 
@@ -426,6 +488,7 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
         </CollapsibleSection>
       </div>
     </Modal>
+    </TranslationProvider>
   );
 }
 

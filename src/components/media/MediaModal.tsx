@@ -8,7 +8,10 @@ import Textarea from '@/components/shared/Textarea';
 import Select from '@/components/shared/Select';
 import Button from '@/components/shared/Button';
 import ChunkedUploader from '@/components/shared/ChunkedUploader';
+import StatusField from '@/components/shared/StatusField';
+import ArabicField from '@/components/shared/ArabicField';
 import { getErrorMessage } from '@/lib/api-client';
+import { getIsMachineFlag } from '@/lib/translation';
 import { mediaKeys, createMediaItem, updateMediaItem } from '@/lib/services/media';
 import type { MediaItem } from '@/types/media';
 
@@ -133,14 +136,30 @@ export default function MediaModal({ isOpen, onClose, item }: MediaModalProps) {
         <Input label="File URL" value={formData.fileUrl || ''} onChange={(e) => setField({ fileUrl: e.target.value })} placeholder="https://..." />
         <Input label="Filename" value={formData.filename || ''} onChange={(e) => setField({ filename: e.target.value })} />
         <Input label="Alt Text (EN)" value={formData.alt || ''} onChange={(e) => setField({ alt: e.target.value })} />
-        <Input label="Alt Text (AR)" value={formData.altAr || ''} onChange={(e) => setField({ altAr: e.target.value })} />
+        <ArabicField
+          label="Alt Text (AR)"
+          statusOnly
+          englishValue={formData.alt || ''}
+          value={formData.altAr || ''}
+          onChange={(value) => setField({ altAr: value })}
+          isMachine={getIsMachineFlag(item, 'altAr')}
+        />
         <Textarea label="Caption (EN)" rows={2} value={formData.caption || ''} onChange={(e) => setField({ caption: e.target.value })} />
-        <Textarea label="Caption (AR)" rows={2} value={formData.captionAr || ''} onChange={(e) => setField({ captionAr: e.target.value })} />
+        <ArabicField
+          label="Caption (AR)"
+          statusOnly
+          multiline
+          rows={2}
+          englishValue={formData.caption || ''}
+          value={formData.captionAr || ''}
+          onChange={(value) => setField({ captionAr: value })}
+          isMachine={getIsMachineFlag(item, 'captionAr')}
+        />
         <Select label="Category" options={CATEGORY_OPTIONS} value={formData.category || 'image'} onChange={(e) => setField({ category: e.target.value as MediaItem['category'] })} />
         <Input label="File Size (bytes)" type="number" value={String(formData.fileSize || 0)} onChange={(e) => setField({ fileSize: Number(e.target.value) })} />
         <Input label="Width (px)" type="number" value={String(formData.width || 0)} onChange={(e) => setField({ width: Number(e.target.value) })} />
         <Input label="Height (px)" type="number" value={String(formData.height || 0)} onChange={(e) => setField({ height: Number(e.target.value) })} />
-        <Select label="Status" options={STATUS_OPTIONS} value={formData.status || 'Published'} onChange={(e) => setField({ status: e.target.value })} />
+        <StatusField options={STATUS_OPTIONS} value={formData.status || 'Published'} onChange={(status) => setField({ status })} />
 
         {formData.fileUrl && (
           <div className="col-span-full">

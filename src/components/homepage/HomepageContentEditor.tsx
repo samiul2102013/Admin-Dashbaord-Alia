@@ -7,8 +7,12 @@ import CollapsibleSection from '@/components/shared/CollapsibleSection';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Button from '@/components/shared/Button';
+import ArabicField from '@/components/shared/ArabicField';
+import TranslationProvider from '@/components/shared/TranslationProvider';
+import TranslationToolbar from '@/components/shared/TranslationToolbar';
 import { getErrorMessage } from '@/lib/api-client';
 import { getHomepageContent, saveHomepageContent, homepageKeys } from '@/lib/services/homepage';
+import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
 import { useUpload } from '@/hooks/useMeta';
 import {
   DEFAULT_SECTION_VISIBILITY,
@@ -63,6 +67,62 @@ function cloneData(d: HomepageContent | null): HomepageContent {
       };
 }
 
+const SCALAR_PAIRS: { ar: keyof HomepageContent; en: keyof HomepageContent; multiline?: boolean }[] = [
+  { ar: 'heroEyebrowAr', en: 'heroEyebrow' },
+  { ar: 'heroTitleAr', en: 'heroTitle' },
+  { ar: 'heroSubtitleAr', en: 'heroSubtitle', multiline: true },
+  { ar: 'heroSearchPlaceholderAr', en: 'heroSearchPlaceholder' },
+  { ar: 'heroSearchButtonAr', en: 'heroSearchButton' },
+  { ar: 'heroPrimaryCtaLabelAr', en: 'heroPrimaryCtaLabel' },
+  { ar: 'heroSecondaryCtaLabelAr', en: 'heroSecondaryCtaLabel' },
+  { ar: 'shortsTitleAr', en: 'shortsTitle' },
+  { ar: 'shortsSubtitleAr', en: 'shortsSubtitle', multiline: true },
+  { ar: 'shortsCtaLabelAr', en: 'shortsCtaLabel' },
+  { ar: 'shortsEmptyTextAr', en: 'shortsEmptyText' },
+  { ar: 'newsTitleAr', en: 'newsTitle' },
+  { ar: 'newsSubtitleAr', en: 'newsSubtitle', multiline: true },
+  { ar: 'newsCtaLabelAr', en: 'newsCtaLabel' },
+  { ar: 'initiativesTitleAr', en: 'initiativesTitle' },
+  { ar: 'initiativesSubtitleAr', en: 'initiativesSubtitle', multiline: true },
+  { ar: 'initiativesCtaLabelAr', en: 'initiativesCtaLabel' },
+  { ar: 'consultationsTitleAr', en: 'consultationsTitle' },
+  { ar: 'consultationsSubtitleAr', en: 'consultationsSubtitle', multiline: true },
+  { ar: 'consultationsCtaLabelAr', en: 'consultationsCtaLabel' },
+  { ar: 'consultationsFreeTabAr', en: 'consultationsFreeTab' },
+  { ar: 'consultationsPaidTabAr', en: 'consultationsPaidTab' },
+  { ar: 'emiratesTitleAr', en: 'emiratesTitle' },
+  { ar: 'emiratesSubtitleAr', en: 'emiratesSubtitle', multiline: true },
+  { ar: 'emiratesCapitalLabelAr', en: 'emiratesCapitalLabel' },
+  { ar: 'emiratesHeadquartersLabelAr', en: 'emiratesHeadquartersLabel' },
+  { ar: 'emiratesCtaLabelAr', en: 'emiratesCtaLabel' },
+  { ar: 'ctaTitleAr', en: 'ctaTitle' },
+  { ar: 'ctaSubtitleAr', en: 'ctaSubtitle', multiline: true },
+  { ar: 'ctaPrimaryLabelAr', en: 'ctaPrimaryLabel' },
+  { ar: 'ctaSecondaryLabelAr', en: 'ctaSecondaryLabel' },
+];
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function readMachineFlags(record: HomepageContent | null): Record<string, boolean> {
+  const flags: Record<string, boolean> = {};
+  SCALAR_PAIRS.forEach(({ ar }) => {
+    flags[ar] = getIsMachineFlag(record, ar);
+  });
+  return flags;
+}
+
+/** Fields the backend left blank despite an English source — retry candidates. */
+function readFailedFields(record: HomepageContent | null): Set<string> {
+  const failed = new Set<string>();
+  if (!record) return failed;
+  SCALAR_PAIRS.forEach(({ ar, en }) => {
+    if (asString(record[en]).trim() && !asString(record[ar]).trim()) failed.add(ar);
+  });
+  return failed;
+}
+
 function loadCollapsed(): Set<string> {
   if (typeof window === 'undefined') return new Set();
   try {
@@ -92,9 +152,15 @@ export default function HomepageContentEditor() {
   const [error, setError] = useState('');
   const [savedFlash, setSavedFlash] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const [machineFlags, setMachineFlags] = useState<Record<string, boolean>>({});
+  const [failedFields, setFailedFields] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (data) setFormData(cloneData(data));
+    if (data) {
+      setFormData(cloneData(data));
+      setMachineFlags(readMachineFlags(data));
+      setFailedFields(new Set());
+    }
   }, [data]);
 
   useEffect(() => {
@@ -187,6 +253,24 @@ export default function HomepageContentEditor() {
     });
   }, []);
 
+  // Reload the record after a retranslation and refresh the per-field status.
+  const reloadTranslations = useCallback(async () => {
+    const updated = await getHomepageContent();
+    if (!updated) return;
+    setFormData(cloneData(updated));
+    setMachineFlags(readMachineFlags(updated));
+    setFailedFields(readFailedFields(updated));
+  }, []);
+
+  const translationStates: TranslationState[] = SCALAR_PAIRS.map(({ ar, en }) =>
+    getTranslationState(
+      asString(formData[en]),
+      asString(formData[ar]),
+      machineFlags[ar],
+      failedFields.has(ar),
+    ),
+  );
+
   const saveMutation = useMutation({
     mutationFn: (payload: Partial<HomepageContent>) => saveHomepageContent(payload),
     onSuccess: (updated) => {
@@ -214,6 +298,7 @@ export default function HomepageContentEditor() {
   }
 
   return (
+    <TranslationProvider model="homepage" id={formData.id} onTranslated={reloadTranslations}>
     <div className="flex flex-col gap-5 flex-1 min-h-0 pb-20">
       {fetchError && (
         <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">
@@ -226,17 +311,27 @@ export default function HomepageContentEditor() {
         </p>
       )}
 
+      <TranslationToolbar states={translationStates} title={formData.heroTitle} />
+
       {/* Published toggle */}
-      <div className="flex items-center gap-3 p-4 rounded-[12px] border border-secondary/30 bg-surface/50">
+      <div className="flex items-start gap-3 p-4 rounded-[12px] border border-secondary/30 bg-surface/50">
         <input
           type="checkbox"
           checked={formData.published}
           onChange={(e) => setField({ published: e.target.checked })}
-          className="w-5 h-5 accent-primary"
+          className="w-5 h-5 accent-primary mt-0.5"
         />
-        <span className="text-sm font-semibold font-[family-name:var(--font-poppins)]">
-          Published (visible on the website)
-        </span>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-semibold font-[family-name:var(--font-poppins)]">
+            Published — shows the complete public Homepage and all of its content. Turning this
+            off hides the whole page, not only the navigation link.
+          </span>
+          <span className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+            {formData.published
+              ? 'Currently published: the complete Homepage is live to the public.'
+              : 'Currently unpublished: the entire Homepage is hidden from the public.'}
+          </span>
+        </div>
       </div>
 
       {/* Hero Section */}
@@ -248,21 +343,72 @@ export default function HomepageContentEditor() {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Eyebrow (EN)" value={formData.heroEyebrow} onChange={(e) => setField({ heroEyebrow: e.target.value })} />
-          <Input label="Eyebrow (AR)" value={formData.heroEyebrowAr} onChange={(e) => setField({ heroEyebrowAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Eyebrow (AR)"
+            englishValue={formData.heroEyebrow}
+            value={formData.heroEyebrowAr}
+            onChange={(v) => setField({ heroEyebrowAr: v })}
+            isMachine={machineFlags.heroEyebrowAr}
+            failed={failedFields.has('heroEyebrowAr')}
+          />
           <Input label="Title (EN)" value={formData.heroTitle} onChange={(e) => setField({ heroTitle: e.target.value })} />
-          <Input label="Title (AR)" value={formData.heroTitleAr} onChange={(e) => setField({ heroTitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Title (AR)"
+            englishValue={formData.heroTitle}
+            value={formData.heroTitleAr}
+            onChange={(v) => setField({ heroTitleAr: v })}
+            isMachine={machineFlags.heroTitleAr}
+            failed={failedFields.has('heroTitleAr')}
+          />
           <Textarea label="Subtitle (EN)" rows={2} value={formData.heroSubtitle} onChange={(e) => setField({ heroSubtitle: e.target.value })} />
-          <Textarea label="Subtitle (AR)" rows={2} value={formData.heroSubtitleAr} onChange={(e) => setField({ heroSubtitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Subtitle (AR)"
+            multiline
+            rows={2}
+            englishValue={formData.heroSubtitle}
+            value={formData.heroSubtitleAr}
+            onChange={(v) => setField({ heroSubtitleAr: v })}
+            isMachine={machineFlags.heroSubtitleAr}
+            failed={failedFields.has('heroSubtitleAr')}
+          />
           <Input label="Search Placeholder (EN)" value={formData.heroSearchPlaceholder} onChange={(e) => setField({ heroSearchPlaceholder: e.target.value })} />
-          <Input label="Search Placeholder (AR)" value={formData.heroSearchPlaceholderAr} onChange={(e) => setField({ heroSearchPlaceholderAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Search Placeholder (AR)"
+            englishValue={formData.heroSearchPlaceholder}
+            value={formData.heroSearchPlaceholderAr}
+            onChange={(v) => setField({ heroSearchPlaceholderAr: v })}
+            isMachine={machineFlags.heroSearchPlaceholderAr}
+            failed={failedFields.has('heroSearchPlaceholderAr')}
+          />
           <Input label="Search Button (EN)" value={formData.heroSearchButton} onChange={(e) => setField({ heroSearchButton: e.target.value })} />
-          <Input label="Search Button (AR)" value={formData.heroSearchButtonAr} onChange={(e) => setField({ heroSearchButtonAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Search Button (AR)"
+            englishValue={formData.heroSearchButton}
+            value={formData.heroSearchButtonAr}
+            onChange={(v) => setField({ heroSearchButtonAr: v })}
+            isMachine={machineFlags.heroSearchButtonAr}
+            failed={failedFields.has('heroSearchButtonAr')}
+          />
           <Input label="Primary CTA Label (EN)" value={formData.heroPrimaryCtaLabel} onChange={(e) => setField({ heroPrimaryCtaLabel: e.target.value })} />
-          <Input label="Primary CTA Label (AR)" value={formData.heroPrimaryCtaLabelAr} onChange={(e) => setField({ heroPrimaryCtaLabelAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Primary CTA Label (AR)"
+            englishValue={formData.heroPrimaryCtaLabel}
+            value={formData.heroPrimaryCtaLabelAr}
+            onChange={(v) => setField({ heroPrimaryCtaLabelAr: v })}
+            isMachine={machineFlags.heroPrimaryCtaLabelAr}
+            failed={failedFields.has('heroPrimaryCtaLabelAr')}
+          />
           <Input label="Primary CTA Link" value={formData.heroPrimaryCtaLink} onChange={(e) => setField({ heroPrimaryCtaLink: e.target.value })} />
           <div />
           <Input label="Secondary CTA Label (EN)" value={formData.heroSecondaryCtaLabel} onChange={(e) => setField({ heroSecondaryCtaLabel: e.target.value })} />
-          <Input label="Secondary CTA Label (AR)" value={formData.heroSecondaryCtaLabelAr} onChange={(e) => setField({ heroSecondaryCtaLabelAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Secondary CTA Label (AR)"
+            englishValue={formData.heroSecondaryCtaLabel}
+            value={formData.heroSecondaryCtaLabelAr}
+            onChange={(v) => setField({ heroSecondaryCtaLabelAr: v })}
+            isMachine={machineFlags.heroSecondaryCtaLabelAr}
+            failed={failedFields.has('heroSecondaryCtaLabelAr')}
+          />
           <Input label="Secondary CTA Link" value={formData.heroSecondaryCtaLink} onChange={(e) => setField({ heroSecondaryCtaLink: e.target.value })} />
           <div />
         </div>
@@ -318,9 +464,21 @@ export default function HomepageContentEditor() {
                 <p className="text-[11px] font-bold text-text-secondary mb-2 font-[family-name:var(--font-manrope)]">Card {i + 1}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input label="Label (EN)" value={card.label} onChange={(e) => setCard(i, { label: e.target.value })} />
-                  <Input label="Label (AR)" value={card.labelAr} onChange={(e) => setCard(i, { labelAr: e.target.value })} dir="rtl" />
+                  <ArabicField
+                    label="Label (AR)"
+                    statusOnly
+                    englishValue={card.label}
+                    value={card.labelAr}
+                    onChange={(v) => setCard(i, { labelAr: v })}
+                  />
                   <Input label="Sublabel (EN)" value={card.sublabel} onChange={(e) => setCard(i, { sublabel: e.target.value })} />
-                  <Input label="Sublabel (AR)" value={card.sublabelAr} onChange={(e) => setCard(i, { sublabelAr: e.target.value })} dir="rtl" />
+                  <ArabicField
+                    label="Sublabel (AR)"
+                    statusOnly
+                    englishValue={card.sublabel}
+                    value={card.sublabelAr}
+                    onChange={(v) => setCard(i, { sublabelAr: v })}
+                  />
                 </div>
               </div>
             ))}
@@ -334,6 +492,8 @@ export default function HomepageContentEditor() {
         hint="Stats shown on the homepage"
         visible={visibility.stats}
         onToggleVisible={() => toggleVisibility('stats')}
+        sectionName="Stats"
+        hidePreview="the homepage statistics band"
         isOpen={!collapsed.has('stats')}
         onToggle={() => toggleCollapse('stats')}
       >
@@ -362,9 +522,21 @@ export default function HomepageContentEditor() {
                   <Input label="Value" value={stat.value} onChange={(e) => setStat(i, { value: e.target.value })} />
                   <div />
                   <Input label="Title (EN)" value={stat.title} onChange={(e) => setStat(i, { title: e.target.value })} />
-                  <Input label="Title (AR)" value={stat.titleAr} onChange={(e) => setStat(i, { titleAr: e.target.value })} dir="rtl" />
+                  <ArabicField
+                    label="Title (AR)"
+                    statusOnly
+                    englishValue={stat.title}
+                    value={stat.titleAr}
+                    onChange={(v) => setStat(i, { titleAr: v })}
+                  />
                   <Input label="Subtitle (EN)" value={stat.subtitle} onChange={(e) => setStat(i, { subtitle: e.target.value })} />
-                  <Input label="Subtitle (AR)" value={stat.subtitleAr} onChange={(e) => setStat(i, { subtitleAr: e.target.value })} dir="rtl" />
+                  <ArabicField
+                    label="Subtitle (AR)"
+                    statusOnly
+                    englishValue={stat.subtitle}
+                    value={stat.subtitleAr}
+                    onChange={(v) => setStat(i, { subtitleAr: v })}
+                  />
                 </div>
               </div>
             ))}
@@ -378,18 +550,50 @@ export default function HomepageContentEditor() {
         hint="Shorts section heading & CTA"
         visible={visibility.shorts}
         onToggleVisible={() => toggleVisibility('shorts')}
+        sectionName="Shorts"
+        hidePreview="the short-videos carousel on the public homepage"
         isOpen={!collapsed.has('shorts')}
         onToggle={() => toggleCollapse('shorts')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.shortsTitle} onChange={(e) => setField({ shortsTitle: e.target.value })} />
-          <Input label="Title (AR)" value={formData.shortsTitleAr} onChange={(e) => setField({ shortsTitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Title (AR)"
+            englishValue={formData.shortsTitle}
+            value={formData.shortsTitleAr}
+            onChange={(v) => setField({ shortsTitleAr: v })}
+            isMachine={machineFlags.shortsTitleAr}
+            failed={failedFields.has('shortsTitleAr')}
+          />
           <Textarea label="Subtitle (EN)" rows={2} value={formData.shortsSubtitle} onChange={(e) => setField({ shortsSubtitle: e.target.value })} />
-          <Textarea label="Subtitle (AR)" rows={2} value={formData.shortsSubtitleAr} onChange={(e) => setField({ shortsSubtitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Subtitle (AR)"
+            multiline
+            rows={2}
+            englishValue={formData.shortsSubtitle}
+            value={formData.shortsSubtitleAr}
+            onChange={(v) => setField({ shortsSubtitleAr: v })}
+            isMachine={machineFlags.shortsSubtitleAr}
+            failed={failedFields.has('shortsSubtitleAr')}
+          />
           <Input label="CTA Label (EN)" value={formData.shortsCtaLabel} onChange={(e) => setField({ shortsCtaLabel: e.target.value })} />
-          <Input label="CTA Label (AR)" value={formData.shortsCtaLabelAr} onChange={(e) => setField({ shortsCtaLabelAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="CTA Label (AR)"
+            englishValue={formData.shortsCtaLabel}
+            value={formData.shortsCtaLabelAr}
+            onChange={(v) => setField({ shortsCtaLabelAr: v })}
+            isMachine={machineFlags.shortsCtaLabelAr}
+            failed={failedFields.has('shortsCtaLabelAr')}
+          />
           <Input label="Empty Text (EN)" value={formData.shortsEmptyText} onChange={(e) => setField({ shortsEmptyText: e.target.value })} />
-          <Input label="Empty Text (AR)" value={formData.shortsEmptyTextAr} onChange={(e) => setField({ shortsEmptyTextAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Empty Text (AR)"
+            englishValue={formData.shortsEmptyText}
+            value={formData.shortsEmptyTextAr}
+            onChange={(v) => setField({ shortsEmptyTextAr: v })}
+            isMachine={machineFlags.shortsEmptyTextAr}
+            failed={failedFields.has('shortsEmptyTextAr')}
+          />
         </div>
       </CollapsibleSection>
 
@@ -399,16 +603,41 @@ export default function HomepageContentEditor() {
         hint="News section heading & CTA"
         visible={visibility.news}
         onToggleVisible={() => toggleVisibility('news')}
+        sectionName="Latest News"
+        hidePreview="the Latest News grid on the public homepage"
         isOpen={!collapsed.has('news')}
         onToggle={() => toggleCollapse('news')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.newsTitle} onChange={(e) => setField({ newsTitle: e.target.value })} />
-          <Input label="Title (AR)" value={formData.newsTitleAr} onChange={(e) => setField({ newsTitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Title (AR)"
+            englishValue={formData.newsTitle}
+            value={formData.newsTitleAr}
+            onChange={(v) => setField({ newsTitleAr: v })}
+            isMachine={machineFlags.newsTitleAr}
+            failed={failedFields.has('newsTitleAr')}
+          />
           <Textarea label="Subtitle (EN)" rows={2} value={formData.newsSubtitle} onChange={(e) => setField({ newsSubtitle: e.target.value })} />
-          <Textarea label="Subtitle (AR)" rows={2} value={formData.newsSubtitleAr} onChange={(e) => setField({ newsSubtitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Subtitle (AR)"
+            multiline
+            rows={2}
+            englishValue={formData.newsSubtitle}
+            value={formData.newsSubtitleAr}
+            onChange={(v) => setField({ newsSubtitleAr: v })}
+            isMachine={machineFlags.newsSubtitleAr}
+            failed={failedFields.has('newsSubtitleAr')}
+          />
           <Input label="CTA Label (EN)" value={formData.newsCtaLabel} onChange={(e) => setField({ newsCtaLabel: e.target.value })} />
-          <Input label="CTA Label (AR)" value={formData.newsCtaLabelAr} onChange={(e) => setField({ newsCtaLabelAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="CTA Label (AR)"
+            englishValue={formData.newsCtaLabel}
+            value={formData.newsCtaLabelAr}
+            onChange={(v) => setField({ newsCtaLabelAr: v })}
+            isMachine={machineFlags.newsCtaLabelAr}
+            failed={failedFields.has('newsCtaLabelAr')}
+          />
         </div>
       </CollapsibleSection>
 
@@ -418,16 +647,41 @@ export default function HomepageContentEditor() {
         hint="Initiatives section heading & CTA"
         visible={visibility.initiatives}
         onToggleVisible={() => toggleVisibility('initiatives')}
+        sectionName="Initiatives"
+        hidePreview="the Initiatives grid on the public homepage"
         isOpen={!collapsed.has('initiatives')}
         onToggle={() => toggleCollapse('initiatives')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.initiativesTitle} onChange={(e) => setField({ initiativesTitle: e.target.value })} />
-          <Input label="Title (AR)" value={formData.initiativesTitleAr} onChange={(e) => setField({ initiativesTitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Title (AR)"
+            englishValue={formData.initiativesTitle}
+            value={formData.initiativesTitleAr}
+            onChange={(v) => setField({ initiativesTitleAr: v })}
+            isMachine={machineFlags.initiativesTitleAr}
+            failed={failedFields.has('initiativesTitleAr')}
+          />
           <Textarea label="Subtitle (EN)" rows={2} value={formData.initiativesSubtitle} onChange={(e) => setField({ initiativesSubtitle: e.target.value })} />
-          <Textarea label="Subtitle (AR)" rows={2} value={formData.initiativesSubtitleAr} onChange={(e) => setField({ initiativesSubtitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Subtitle (AR)"
+            multiline
+            rows={2}
+            englishValue={formData.initiativesSubtitle}
+            value={formData.initiativesSubtitleAr}
+            onChange={(v) => setField({ initiativesSubtitleAr: v })}
+            isMachine={machineFlags.initiativesSubtitleAr}
+            failed={failedFields.has('initiativesSubtitleAr')}
+          />
           <Input label="CTA Label (EN)" value={formData.initiativesCtaLabel} onChange={(e) => setField({ initiativesCtaLabel: e.target.value })} />
-          <Input label="CTA Label (AR)" value={formData.initiativesCtaLabelAr} onChange={(e) => setField({ initiativesCtaLabelAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="CTA Label (AR)"
+            englishValue={formData.initiativesCtaLabel}
+            value={formData.initiativesCtaLabelAr}
+            onChange={(v) => setField({ initiativesCtaLabelAr: v })}
+            isMachine={machineFlags.initiativesCtaLabelAr}
+            failed={failedFields.has('initiativesCtaLabelAr')}
+          />
         </div>
       </CollapsibleSection>
 
@@ -437,20 +691,59 @@ export default function HomepageContentEditor() {
         hint="Consultations section heading & CTA"
         visible={visibility.consultations}
         onToggleVisible={() => toggleVisibility('consultations')}
+        sectionName="Consultations"
+        hidePreview="the Consultations grid on the public homepage"
         isOpen={!collapsed.has('consultations')}
         onToggle={() => toggleCollapse('consultations')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.consultationsTitle} onChange={(e) => setField({ consultationsTitle: e.target.value })} />
-          <Input label="Title (AR)" value={formData.consultationsTitleAr} onChange={(e) => setField({ consultationsTitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Title (AR)"
+            englishValue={formData.consultationsTitle}
+            value={formData.consultationsTitleAr}
+            onChange={(v) => setField({ consultationsTitleAr: v })}
+            isMachine={machineFlags.consultationsTitleAr}
+            failed={failedFields.has('consultationsTitleAr')}
+          />
           <Textarea label="Subtitle (EN)" rows={2} value={formData.consultationsSubtitle} onChange={(e) => setField({ consultationsSubtitle: e.target.value })} />
-          <Textarea label="Subtitle (AR)" rows={2} value={formData.consultationsSubtitleAr} onChange={(e) => setField({ consultationsSubtitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Subtitle (AR)"
+            multiline
+            rows={2}
+            englishValue={formData.consultationsSubtitle}
+            value={formData.consultationsSubtitleAr}
+            onChange={(v) => setField({ consultationsSubtitleAr: v })}
+            isMachine={machineFlags.consultationsSubtitleAr}
+            failed={failedFields.has('consultationsSubtitleAr')}
+          />
           <Input label="CTA Label (EN)" value={formData.consultationsCtaLabel} onChange={(e) => setField({ consultationsCtaLabel: e.target.value })} />
-          <Input label="CTA Label (AR)" value={formData.consultationsCtaLabelAr} onChange={(e) => setField({ consultationsCtaLabelAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="CTA Label (AR)"
+            englishValue={formData.consultationsCtaLabel}
+            value={formData.consultationsCtaLabelAr}
+            onChange={(v) => setField({ consultationsCtaLabelAr: v })}
+            isMachine={machineFlags.consultationsCtaLabelAr}
+            failed={failedFields.has('consultationsCtaLabelAr')}
+          />
           <Input label="Free Tab (EN)" value={formData.consultationsFreeTab} onChange={(e) => setField({ consultationsFreeTab: e.target.value })} />
-          <Input label="Free Tab (AR)" value={formData.consultationsFreeTabAr} onChange={(e) => setField({ consultationsFreeTabAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Free Tab (AR)"
+            englishValue={formData.consultationsFreeTab}
+            value={formData.consultationsFreeTabAr}
+            onChange={(v) => setField({ consultationsFreeTabAr: v })}
+            isMachine={machineFlags.consultationsFreeTabAr}
+            failed={failedFields.has('consultationsFreeTabAr')}
+          />
           <Input label="Paid Tab (EN)" value={formData.consultationsPaidTab} onChange={(e) => setField({ consultationsPaidTab: e.target.value })} />
-          <Input label="Paid Tab (AR)" value={formData.consultationsPaidTabAr} onChange={(e) => setField({ consultationsPaidTabAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Paid Tab (AR)"
+            englishValue={formData.consultationsPaidTab}
+            value={formData.consultationsPaidTabAr}
+            onChange={(v) => setField({ consultationsPaidTabAr: v })}
+            isMachine={machineFlags.consultationsPaidTabAr}
+            failed={failedFields.has('consultationsPaidTabAr')}
+          />
         </div>
       </CollapsibleSection>
 
@@ -460,20 +753,59 @@ export default function HomepageContentEditor() {
         hint="Emirates section heading & CTA"
         visible={visibility.emirates}
         onToggleVisible={() => toggleVisibility('emirates')}
+        sectionName="Emirates"
+        hidePreview="the Emirates directory on the public homepage"
         isOpen={!collapsed.has('emirates')}
         onToggle={() => toggleCollapse('emirates')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.emiratesTitle} onChange={(e) => setField({ emiratesTitle: e.target.value })} />
-          <Input label="Title (AR)" value={formData.emiratesTitleAr} onChange={(e) => setField({ emiratesTitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Title (AR)"
+            englishValue={formData.emiratesTitle}
+            value={formData.emiratesTitleAr}
+            onChange={(v) => setField({ emiratesTitleAr: v })}
+            isMachine={machineFlags.emiratesTitleAr}
+            failed={failedFields.has('emiratesTitleAr')}
+          />
           <Textarea label="Subtitle (EN)" rows={2} value={formData.emiratesSubtitle} onChange={(e) => setField({ emiratesSubtitle: e.target.value })} />
-          <Textarea label="Subtitle (AR)" rows={2} value={formData.emiratesSubtitleAr} onChange={(e) => setField({ emiratesSubtitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Subtitle (AR)"
+            multiline
+            rows={2}
+            englishValue={formData.emiratesSubtitle}
+            value={formData.emiratesSubtitleAr}
+            onChange={(v) => setField({ emiratesSubtitleAr: v })}
+            isMachine={machineFlags.emiratesSubtitleAr}
+            failed={failedFields.has('emiratesSubtitleAr')}
+          />
           <Input label="Capital Region Label (EN)" value={formData.emiratesCapitalLabel} onChange={(e) => setField({ emiratesCapitalLabel: e.target.value })} />
-          <Input label="Capital Region Label (AR)" value={formData.emiratesCapitalLabelAr} onChange={(e) => setField({ emiratesCapitalLabelAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Capital Region Label (AR)"
+            englishValue={formData.emiratesCapitalLabel}
+            value={formData.emiratesCapitalLabelAr}
+            onChange={(v) => setField({ emiratesCapitalLabelAr: v })}
+            isMachine={machineFlags.emiratesCapitalLabelAr}
+            failed={failedFields.has('emiratesCapitalLabelAr')}
+          />
           <Input label="Main HQ Label (EN)" value={formData.emiratesHeadquartersLabel} onChange={(e) => setField({ emiratesHeadquartersLabel: e.target.value })} />
-          <Input label="Main HQ Label (AR)" value={formData.emiratesHeadquartersLabelAr} onChange={(e) => setField({ emiratesHeadquartersLabelAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Main HQ Label (AR)"
+            englishValue={formData.emiratesHeadquartersLabel}
+            value={formData.emiratesHeadquartersLabelAr}
+            onChange={(v) => setField({ emiratesHeadquartersLabelAr: v })}
+            isMachine={machineFlags.emiratesHeadquartersLabelAr}
+            failed={failedFields.has('emiratesHeadquartersLabelAr')}
+          />
           <Input label="CTA Label (EN)" value={formData.emiratesCtaLabel} onChange={(e) => setField({ emiratesCtaLabel: e.target.value })} />
-          <Input label="CTA Label (AR)" value={formData.emiratesCtaLabelAr} onChange={(e) => setField({ emiratesCtaLabelAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="CTA Label (AR)"
+            englishValue={formData.emiratesCtaLabel}
+            value={formData.emiratesCtaLabelAr}
+            onChange={(v) => setField({ emiratesCtaLabelAr: v })}
+            isMachine={machineFlags.emiratesCtaLabelAr}
+            failed={failedFields.has('emiratesCtaLabelAr')}
+          />
         </div>
       </CollapsibleSection>
 
@@ -483,20 +815,52 @@ export default function HomepageContentEditor() {
         hint="CTA banner at the bottom"
         visible={visibility.cta}
         onToggleVisible={() => toggleVisibility('cta')}
+        sectionName="Call-To-Action"
+        hidePreview="the closing Call-To-Action banner on the public homepage"
         isOpen={!collapsed.has('cta')}
         onToggle={() => toggleCollapse('cta')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.ctaTitle} onChange={(e) => setField({ ctaTitle: e.target.value })} />
-          <Input label="Title (AR)" value={formData.ctaTitleAr} onChange={(e) => setField({ ctaTitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Title (AR)"
+            englishValue={formData.ctaTitle}
+            value={formData.ctaTitleAr}
+            onChange={(v) => setField({ ctaTitleAr: v })}
+            isMachine={machineFlags.ctaTitleAr}
+            failed={failedFields.has('ctaTitleAr')}
+          />
           <Textarea label="Subtitle (EN)" rows={2} value={formData.ctaSubtitle} onChange={(e) => setField({ ctaSubtitle: e.target.value })} />
-          <Textarea label="Subtitle (AR)" rows={2} value={formData.ctaSubtitleAr} onChange={(e) => setField({ ctaSubtitleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Subtitle (AR)"
+            multiline
+            rows={2}
+            englishValue={formData.ctaSubtitle}
+            value={formData.ctaSubtitleAr}
+            onChange={(v) => setField({ ctaSubtitleAr: v })}
+            isMachine={machineFlags.ctaSubtitleAr}
+            failed={failedFields.has('ctaSubtitleAr')}
+          />
           <Input label="Primary Label (EN)" value={formData.ctaPrimaryLabel} onChange={(e) => setField({ ctaPrimaryLabel: e.target.value })} />
-          <Input label="Primary Label (AR)" value={formData.ctaPrimaryLabelAr} onChange={(e) => setField({ ctaPrimaryLabelAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Primary Label (AR)"
+            englishValue={formData.ctaPrimaryLabel}
+            value={formData.ctaPrimaryLabelAr}
+            onChange={(v) => setField({ ctaPrimaryLabelAr: v })}
+            isMachine={machineFlags.ctaPrimaryLabelAr}
+            failed={failedFields.has('ctaPrimaryLabelAr')}
+          />
           <Input label="Primary Link" value={formData.ctaPrimaryLink} onChange={(e) => setField({ ctaPrimaryLink: e.target.value })} />
           <div />
           <Input label="Secondary Label (EN)" value={formData.ctaSecondaryLabel} onChange={(e) => setField({ ctaSecondaryLabel: e.target.value })} />
-          <Input label="Secondary Label (AR)" value={formData.ctaSecondaryLabelAr} onChange={(e) => setField({ ctaSecondaryLabelAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Secondary Label (AR)"
+            englishValue={formData.ctaSecondaryLabel}
+            value={formData.ctaSecondaryLabelAr}
+            onChange={(v) => setField({ ctaSecondaryLabelAr: v })}
+            isMachine={machineFlags.ctaSecondaryLabelAr}
+            failed={failedFields.has('ctaSecondaryLabelAr')}
+          />
           <Input label="Secondary Link" value={formData.ctaSecondaryLink} onChange={(e) => setField({ ctaSecondaryLink: e.target.value })} />
           <div />
         </div>
@@ -514,6 +878,7 @@ export default function HomepageContentEditor() {
         </Button>
       </div>
     </div>
+    </TranslationProvider>
   );
 }
 

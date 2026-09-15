@@ -7,6 +7,9 @@ export interface Emirates {
   slug?: string;
   emiratesNameAr?: string;
   title?: string;
+  titleAr?: string;
+  descriptionAr?: string;
+  centerCountAr?: string;
   contactPhone?: string;
   serviceCenters?: number;
   centerCount?: string;

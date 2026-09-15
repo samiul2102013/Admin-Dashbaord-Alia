@@ -1,12 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Save, Loader2, Pencil, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Button from '@/components/shared/Button';
+import ArabicField from '@/components/shared/ArabicField';
+import TranslationProvider from '@/components/shared/TranslationProvider';
+import TranslationToolbar from '@/components/shared/TranslationToolbar';
 import { getErrorMessage } from '@/lib/api-client';
+import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
 import {
   listPresentations,
   updatePresentation,
@@ -14,7 +18,11 @@ import {
 } from '@/lib/services/presentations';
 import type { Presentation, PresentationFaq, PresentationTopic } from '@/types/presentations';
 
-const EDITABLE_KEYS = ['news', 'shorts', 'consultation', 'home', 'initiatives', 'emirates'];
+// The public site only renders shorts/news/consultation/initiatives/emirates.
+// The 'home' presentation has no public consumer, so it is intentionally excluded
+// here — admins must not be able to edit a screen that does nothing.
+const EDITABLE_KEYS = ['news', 'shorts', 'consultation', 'initiatives', 'emirates'];
+const EXCLUDED_KEYS = ['home'];
 
 export default function WebsiteContentPanel() {
   const [items, setItems] = useState<Presentation[]>([]);
@@ -23,16 +31,19 @@ export default function WebsiteContentPanel() {
   const [editing, setEditing] = useState<Presentation | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [machineFlags, setMachineFlags] = useState<Record<string, boolean>>({});
+  const [failedFields, setFailedFields] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let mounted = true;
     listPresentations()
       .then((list) => {
         if (!mounted) return;
+        const eligible = list.filter((p) => !EXCLUDED_KEYS.includes(p.key));
         const ordered = EDITABLE_KEYS
-          .map((key) => list.find((p) => p.key === key))
+          .map((key) => eligible.find((p) => p.key === key))
           .filter(Boolean) as Presentation[];
-        setItems(list.length === ordered.length ? ordered : list);
+        setItems(eligible.length === ordered.length ? ordered : eligible);
       })
       .catch((e) => {
         if (mounted) setError(getErrorMessage(e));
@@ -44,6 +55,44 @@ export default function WebsiteContentPanel() {
       mounted = false;
     };
   }, []);
+
+  const startEdit = (item: Presentation) => {
+    setEditing(item);
+    setError('');
+    setSaved(false);
+    setMachineFlags({
+      titleAr: getIsMachineFlag(item, 'titleAr'),
+      descriptionAr: getIsMachineFlag(item, 'descriptionAr'),
+    });
+    const failed = new Set<string>();
+    if ((item.title || '').trim() && !(item.titleAr || '').trim()) failed.add('titleAr');
+    if ((item.description || '').trim() && !(item.descriptionAr || '').trim()) failed.add('descriptionAr');
+    setFailedFields(failed);
+  };
+
+  // Reload the record after a retranslation and refresh the per-field status.
+  const reloadTranslations = useCallback(async () => {
+    if (!editing) return;
+    const list = await listPresentations();
+    const fresh = list.find((p) => p.id === editing.id) ?? list.find((p) => p.key === editing.key);
+    if (!fresh) return;
+    setEditing(fresh);
+    setMachineFlags({
+      titleAr: getIsMachineFlag(fresh, 'titleAr'),
+      descriptionAr: getIsMachineFlag(fresh, 'descriptionAr'),
+    });
+    const failed = new Set<string>();
+    if ((fresh.title || '').trim() && !(fresh.titleAr || '').trim()) failed.add('titleAr');
+    if ((fresh.description || '').trim() && !(fresh.descriptionAr || '').trim()) failed.add('descriptionAr');
+    setFailedFields(failed);
+  }, [editing]);
+
+  const translationStates: TranslationState[] = editing
+    ? [
+        getTranslationState(editing.title, editing.titleAr, machineFlags.titleAr, failedFields.has('titleAr')),
+        getTranslationState(editing.description, editing.descriptionAr, machineFlags.descriptionAr, failedFields.has('descriptionAr')),
+      ]
+    : [];
 
   const handleSave = async () => {
     if (!editing) return;
@@ -81,6 +130,7 @@ export default function WebsiteContentPanel() {
   const setFaqs = (faqs: PresentationFaq[]) => setField({ faqs });
 
   return (
+    <TranslationProvider model="presentation" id={editing?.id} onTranslated={reloadTranslations}>
     <div className="flex flex-col gap-5 flex-1 min-h-0">
       {error && (
         <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>
@@ -136,7 +186,7 @@ export default function WebsiteContentPanel() {
                 </div>
               </div>
 
-              <Button variant="secondary" onClick={() => { setEditing(item); setError(''); setSaved(false); }}>
+              <Button variant="secondary" onClick={() => startEdit(item)}>
                 <Pencil size={16} />
                 Edit
               </Button>
@@ -164,12 +214,31 @@ export default function WebsiteContentPanel() {
         {editing && (
           <div className="flex flex-col gap-5">
             <Input label="Section" value={SECTION_LABELS[editing.key] ?? editing.key} disabled />
+
+            <TranslationToolbar states={translationStates} title={editing.title || undefined} />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Input label="Title (English)" value={editing.title} onChange={(e) => setField({ title: e.target.value })} />
-              <Input label="Title (Arabic)" value={editing.titleAr} onChange={(e) => setField({ titleAr: e.target.value })} />
+              <ArabicField
+                label="Title (Arabic)"
+                englishValue={editing.title}
+                value={editing.titleAr}
+                onChange={(v) => setField({ titleAr: v })}
+                isMachine={machineFlags.titleAr}
+                failed={failedFields.has('titleAr')}
+              />
             </div>
             <Textarea label="Description (English)" rows={3} value={editing.description} onChange={(e) => setField({ description: e.target.value })} />
-            <Textarea label="Description (Arabic)" rows={3} value={editing.descriptionAr} onChange={(e) => setField({ descriptionAr: e.target.value })} />
+            <ArabicField
+              label="Description (Arabic)"
+              multiline
+              rows={3}
+              englishValue={editing.description}
+              value={editing.descriptionAr}
+              onChange={(v) => setField({ descriptionAr: v })}
+              isMachine={machineFlags.descriptionAr}
+              failed={failedFields.has('descriptionAr')}
+            />
             <Input label="Badge" value={editing.badge} onChange={(e) => setField({ badge: e.target.value })} />
             <Input label="Hero Image URL" value={editing.heroImage} onChange={(e) => setField({ heroImage: e.target.value })} />
 
@@ -184,19 +253,23 @@ export default function WebsiteContentPanel() {
               />
             )}
 
-            <label className="flex items-center gap-3 cursor-pointer font-[family-name:var(--font-poppins)]">
+            <label className="flex items-start gap-3 cursor-pointer font-[family-name:var(--font-poppins)]">
               <input
                 type="checkbox"
                 checked={editing.published}
                 onChange={(e) => setField({ published: e.target.checked })}
-                className="w-5 h-5 accent-primary"
+                className="w-5 h-5 accent-primary mt-0.5"
               />
-              <span className="text-sm font-semibold">Published (visible on the website)</span>
+              <span className="text-sm font-semibold">
+                Published — shows the complete public page and all of its content. Turning this off
+                hides the whole page, not only the navigation link.
+              </span>
             </label>
           </div>
         )}
       </Modal>
     </div>
+    </TranslationProvider>
   );
 }
 
@@ -223,24 +296,41 @@ function ShortsExtrasEditor({
 
       {topics.map((topic, i) => (
         <div key={i} className="flex flex-col md:flex-row items-start gap-2">
-          <Input
-            label="Topic Title"
-            value={topic.title}
-            onChange={(e) => {
-              const next = [...topics];
-              next[i] = { ...topic, title: e.target.value };
-              onChangeTopics(next);
-            }}
-          />
-          <Input
-            label="Videos Count"
-            value={topic.videos ?? ''}
-            onChange={(e) => {
-              const next = [...topics];
-              next[i] = { ...topic, videos: e.target.value };
-              onChangeTopics(next);
-            }}
-          />
+          <div className="flex-1">
+            <Input
+              label="Topic Title"
+              value={topic.title}
+              onChange={(e) => {
+                const next = [...topics];
+                next[i] = { ...topic, title: e.target.value };
+                onChangeTopics(next);
+              }}
+            />
+          </div>
+          <div className="flex-1">
+            <ArabicField
+              label="Topic Title (Arabic)"
+              statusOnly
+              englishValue={topic.title}
+              value={topic.titleAr ?? ''}
+              onChange={(v) => {
+                const next = [...topics];
+                next[i] = { ...topic, titleAr: v };
+                onChangeTopics(next);
+              }}
+            />
+          </div>
+          <div className="w-full md:w-[160px]">
+            <Input
+              label="Videos Count"
+              value={topic.videos ?? ''}
+              onChange={(e) => {
+                const next = [...topics];
+                next[i] = { ...topic, videos: e.target.value };
+                onChangeTopics(next);
+              }}
+            />
+          </div>
           <button
             type="button"
             onClick={() => onChangeTopics(topics.filter((_, idx) => idx !== i))}
@@ -257,6 +347,10 @@ function ShortsExtrasEditor({
       </Button>
 
       <SectionLabel title="Contributors" hint="Names displayed on the Shorts page." />
+      <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)] -mt-3">
+        Contributor names are machine-translated to Arabic on the public site, so there is no stored
+        Arabic field to edit here.
+      </p>
       {contributors.map((name, i) => (
         <div key={i} className="flex items-start gap-2 col-span-full">
           <div className="flex-1">
@@ -299,12 +393,14 @@ function ShortsExtrasEditor({
                 onChangeFaqs(next);
               }}
             />
-            <Input
+            <ArabicField
               label="Question (AR)"
+              statusOnly
+              englishValue={faq.question}
               value={faq.questionAr ?? ''}
-              onChange={(e) => {
+              onChange={(v) => {
                 const next = [...faqs];
-                next[i] = { ...faq, questionAr: e.target.value };
+                next[i] = { ...faq, questionAr: v };
                 onChangeFaqs(next);
               }}
             />
@@ -317,12 +413,16 @@ function ShortsExtrasEditor({
                 onChangeFaqs(next);
               }}
             />
-            <Input
+            <ArabicField
               label="Answer (AR)"
+              statusOnly
+              multiline
+              rows={3}
+              englishValue={faq.answer}
               value={faq.answerAr ?? ''}
-              onChange={(e) => {
+              onChange={(v) => {
                 const next = [...faqs];
-                next[i] = { ...faq, answerAr: e.target.value };
+                next[i] = { ...faq, answerAr: v };
                 onChangeFaqs(next);
               }}
             />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type ChangeEvent } from 'react';
+import { useCallback, useState, useEffect, type ChangeEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import CollapsibleSection from '@/components/shared/CollapsibleSection';
@@ -8,7 +8,13 @@ import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Select from '@/components/shared/Select';
 import Button from '@/components/shared/Button';
-import { EMIRATES_OPTIONS, STATUS_OPTIONS } from '@/lib/constants';
+import StatusField from '@/components/shared/StatusField';
+import ArabicField from '@/components/shared/ArabicField';
+import TranslationProvider from '@/components/shared/TranslationProvider';
+import TranslationToolbar from '@/components/shared/TranslationToolbar';
+import { EMIRATES_OPTIONS } from '@/lib/constants';
+import { getEmirate } from '@/lib/services/emirates';
+import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
 import { getErrorMessage } from '@/lib/api-client';
 import { useCreateEmirate, useUpdateEmirate } from '@/hooks/useEmirates';
 import { useUpload } from '@/hooks/useMeta';
@@ -85,15 +91,20 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
   const [emiratesName, setEmiratesName] = useState('');
   const [emiratesNameAr, setEmiratesNameAr] = useState('');
   const [title, setTitle] = useState('');
+  const [titleAr, setTitleAr] = useState('');
   const [description, setDescription] = useState('');
+  const [descriptionAr, setDescriptionAr] = useState('');
   const [dateTime, setDateTime] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [serviceCenters, setServiceCenters] = useState('');
   const [centerCount, setCenterCount] = useState('');
+  const [centerCountAr, setCenterCountAr] = useState('');
   const [image, setImage] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [showStatus, setShowStatus] = useState(true);
   const [status, setStatus] = useState('Draft');
+  const [machineFlags, setMachineFlags] = useState<Record<string, boolean>>({});
+  const [failedFields, setFailedFields] = useState<Set<string>>(new Set());
   const [error, setError] = useState('');
   const [openSections, setOpenSections] = useState<Record<EmiratesSectionKey, boolean>>(initialSections);
 
@@ -102,30 +113,45 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
       setEmiratesName(emirates.emiratesName || '');
       setEmiratesNameAr(emirates.emiratesNameAr || '');
       setTitle(emirates.title || '');
+      setTitleAr(emirates.titleAr || '');
       setDescription(emirates.description || '');
+      setDescriptionAr(emirates.descriptionAr || '');
       setDateTime(emirates.dateTime || '');
       setContactPhone(emirates.contactPhone || '');
       setServiceCenters(
         emirates.serviceCenters != null ? String(emirates.serviceCenters) : '',
       );
       setCenterCount(emirates.centerCount || '');
+      setCenterCountAr(emirates.centerCountAr || '');
       setImage(emirates.image || '');
       setWebsiteUrl(emirates.websiteUrl || '');
       setShowStatus(emirates.showStatus ?? true);
       setStatus(emirates.status || 'Draft');
+      setMachineFlags({
+        emiratesNameAr: getIsMachineFlag(emirates, 'emiratesNameAr'),
+        titleAr: getIsMachineFlag(emirates, 'titleAr'),
+        descriptionAr: getIsMachineFlag(emirates, 'descriptionAr'),
+        centerCountAr: getIsMachineFlag(emirates, 'centerCountAr'),
+      });
+      setFailedFields(new Set());
     } else {
       setEmiratesName('');
       setEmiratesNameAr('');
       setTitle('');
+      setTitleAr('');
       setDescription('');
+      setDescriptionAr('');
       setDateTime('');
       setContactPhone('');
       setServiceCenters('');
       setCenterCount('');
+      setCenterCountAr('');
       setImage('');
       setWebsiteUrl('');
       setShowStatus(true);
       setStatus('Draft');
+      setMachineFlags({});
+      setFailedFields(new Set());
     }
 
     setError('');
@@ -161,11 +187,14 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
       emiratesName: emiratesName.trim(),
       emiratesNameAr: emiratesNameAr.trim(),
       title: title.trim() || emiratesName.trim(),
+      titleAr: titleAr.trim(),
       description: description.trim(),
+      descriptionAr: descriptionAr.trim(),
       dateTime: dateTime || undefined,
       contactPhone: contactPhone.trim(),
       serviceCenters: serviceCenters ? Number(serviceCenters) : 0,
       centerCount: centerCount.trim(),
+      centerCountAr: centerCountAr.trim(),
       image,
       websiteUrl: websiteUrl.trim(),
       showStatus,
@@ -188,6 +217,35 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
     }
   }, [mutation.isError, mutation.error]);
 
+  // Reload the record after a retranslation and refresh the per-field status.
+  const reloadTranslations = useCallback(async () => {
+    if (!emirates) return;
+    const fresh = await getEmirate(emirates.id);
+    setEmiratesNameAr(fresh.emiratesNameAr || '');
+    setTitleAr(fresh.titleAr || '');
+    setDescriptionAr(fresh.descriptionAr || '');
+    setCenterCountAr(fresh.centerCountAr || '');
+    setMachineFlags({
+      emiratesNameAr: getIsMachineFlag(fresh, 'emiratesNameAr'),
+      titleAr: getIsMachineFlag(fresh, 'titleAr'),
+      descriptionAr: getIsMachineFlag(fresh, 'descriptionAr'),
+      centerCountAr: getIsMachineFlag(fresh, 'centerCountAr'),
+    });
+    const failed = new Set<string>();
+    if ((fresh.emiratesName || '').trim() && !(fresh.emiratesNameAr || '').trim()) failed.add('emiratesNameAr');
+    if ((fresh.title || '').trim() && !(fresh.titleAr || '').trim()) failed.add('titleAr');
+    if ((fresh.description || '').trim() && !(fresh.descriptionAr || '').trim()) failed.add('descriptionAr');
+    if ((fresh.centerCount || '').trim() && !(fresh.centerCountAr || '').trim()) failed.add('centerCountAr');
+    setFailedFields(failed);
+  }, [emirates]);
+
+  const translationStates: TranslationState[] = [
+    getTranslationState(emiratesName, emiratesNameAr, machineFlags.emiratesNameAr, failedFields.has('emiratesNameAr')),
+    getTranslationState(title, titleAr, machineFlags.titleAr, failedFields.has('titleAr')),
+    getTranslationState(description, descriptionAr, machineFlags.descriptionAr, failedFields.has('descriptionAr')),
+    getTranslationState(centerCount, centerCountAr, machineFlags.centerCountAr, failedFields.has('centerCountAr')),
+  ];
+
   const footer = (
     <div className="flex justify-center gap-4">
       <Button variant="secondary" onClick={onClose} disabled={isPending}>
@@ -200,6 +258,7 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
   );
 
   return (
+    <TranslationProvider model="emirate" id={emirates?.id} onTranslated={reloadTranslations}>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
@@ -208,6 +267,8 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
     >
       <div className="flex flex-col gap-8">
         {error && <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>}
+
+        <TranslationToolbar states={translationStates} title={emiratesName || undefined} />
 
         <div className="flex gap-8">
           <div className="flex-1">
@@ -221,11 +282,14 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
             />
           </div>
           <div className="flex-1">
-            <Input
+            <ArabicField
               label="Emirates Name (Arabic)"
               placeholder="اسم الإمارة"
+              englishValue={emiratesName}
               value={emiratesNameAr}
-              onChange={(e) => setEmiratesNameAr(e.target.value)}
+              onChange={setEmiratesNameAr}
+              isMachine={machineFlags.emiratesNameAr}
+              failed={failedFields.has('emiratesNameAr')}
             />
           </div>
         </div>
@@ -255,6 +319,21 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
             </div>
           </div>
 
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <ArabicField
+                label="Title (Arabic)"
+                placeholder="العنوان"
+                englishValue={title}
+                value={titleAr}
+                onChange={setTitleAr}
+                isMachine={machineFlags.titleAr}
+                failed={failedFields.has('titleAr')}
+              />
+            </div>
+            <div className="flex-1" />
+          </div>
+
           <div>
             <Textarea
               label="Description"
@@ -263,6 +342,20 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
               className="h-[149px]"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <ArabicField
+              label="Description (Arabic)"
+              placeholder="الوصف"
+              multiline
+              rows={5}
+              englishValue={description}
+              value={descriptionAr}
+              onChange={setDescriptionAr}
+              isMachine={machineFlags.descriptionAr}
+              failed={failedFields.has('descriptionAr')}
             />
           </div>
 
@@ -303,6 +396,21 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
                 onChange={(e) => setWebsiteUrl(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <ArabicField
+                label="Center Count (Arabic)"
+                placeholder="عدد المراكز"
+                englishValue={centerCount}
+                value={centerCountAr}
+                onChange={setCenterCountAr}
+                isMachine={machineFlags.centerCountAr}
+                failed={failedFields.has('centerCountAr')}
+              />
+            </div>
+            <div className="flex-1" />
           </div>
         </CollapsibleSection>
 
@@ -347,14 +455,10 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
             </label>
           </div>
 
-          <Select
-            label="Status"
-            options={STATUS_OPTIONS}
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          />
+          <StatusField value={status} onChange={setStatus} />
         </CollapsibleSection>
       </div>
     </Modal>
+    </TranslationProvider>
   );
 }

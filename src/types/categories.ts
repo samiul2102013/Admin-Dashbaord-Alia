@@ -5,4 +5,6 @@ export interface Category {
   date: string;
   status: 'Published' | 'Draft' | 'Pending';
   slug?: string;
+  categoryAr?: string;
+  descriptionAr?: string;
 }

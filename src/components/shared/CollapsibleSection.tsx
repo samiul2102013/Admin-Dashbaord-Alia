@@ -9,12 +9,22 @@ interface CollapsibleSectionProps {
   onToggle: () => void;
   visible?: boolean;
   onToggleVisible?: () => void;
+  /**
+   * Real name of the public section this visibility toggle controls. Defaults
+   * to `title`. Shown in the toggle tooltip and the hidden notice so admins know
+   * exactly what disappears from the public site.
+   */
+  sectionName?: string;
+  /** Optional concrete preview of what is hidden, e.g. "the Topics cards". */
+  hidePreview?: string;
   children: React.ReactNode;
 }
 
 export default function CollapsibleSection({
-  title, hint, isOpen, onToggle, visible = true, onToggleVisible, children,
+  title, hint, isOpen, onToggle, visible = true, onToggleVisible, sectionName, hidePreview, children,
 }: CollapsibleSectionProps) {
+  const publicName = sectionName ?? title;
+
   return (
     <div className="rounded-[12px] border border-secondary/30 bg-surface/50 overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-4 py-3">
@@ -41,7 +51,12 @@ export default function CollapsibleSection({
           <button
             type="button"
             onClick={onToggleVisible}
-            title={visible ? 'Hide this section on the user panel' : 'Show this section on the user panel'}
+            aria-pressed={!visible}
+            title={
+              visible
+                ? `Hide the "${publicName}" section from the public site`
+                : `Show the "${publicName}" section on the public site`
+            }
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer font-[family-name:var(--font-poppins)] shrink-0 ${
               visible
                 ? 'bg-primary/10 text-primary hover:bg-primary/20'
@@ -49,10 +64,16 @@ export default function CollapsibleSection({
             }`}
           >
             {visible ? <Eye size={13} /> : <EyeOff size={13} />}
-            {visible ? 'Visible' : 'Hidden'}
+            {visible ? 'Visible publicly' : 'Hidden publicly'}
           </button>
         )}
       </div>
+
+      {onToggleVisible && !visible && (
+        <div className="border-t border-secondary/20 bg-warning/5 px-4 py-2 text-xs text-warning font-[family-name:var(--font-poppins)]">
+          Hidden from the public site: {hidePreview ?? `the entire "${publicName}" section`}.
+        </div>
+      )}
 
       {isOpen && (
         <div className={`px-4 pb-4 pt-1 flex flex-col gap-6 ${onToggleVisible && !visible ? 'opacity-40 pointer-events-none' : ''}`}>

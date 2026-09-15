@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
@@ -8,11 +8,16 @@ import Textarea from '@/components/shared/Textarea';
 import Select from '@/components/shared/Select';
 import Button from '@/components/shared/Button';
 import ChunkedUploader from '@/components/shared/ChunkedUploader';
+import StatusField from '@/components/shared/StatusField';
+import ArabicField from '@/components/shared/ArabicField';
+import TranslationProvider from '@/components/shared/TranslationProvider';
+import TranslationToolbar from '@/components/shared/TranslationToolbar';
+import { getShort } from '@/lib/services/shorts';
+import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
 import {
   LANGUAGE_OPTIONS,
   MARITAL_STAGE_OPTIONS,
   SHORT_CATEGORY_OPTIONS,
-  STATUS_OPTIONS,
 } from '@/lib/constants';
 import { useCreateShort, useUpdateShort } from '@/hooks/useShorts';
 import { getErrorMessage } from '@/lib/api-client';
@@ -53,7 +58,11 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
   const [coverImage, setCoverImage] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [speaker, setSpeaker] = useState('');
+  const [speakerAr, setSpeakerAr] = useState('');
   const [description, setDescription] = useState('');
+  const [descriptionAr, setDescriptionAr] = useState('');
+  const [machineFlags, setMachineFlags] = useState<Record<string, boolean>>({});
+  const [failedFields, setFailedFields] = useState<Set<string>>(new Set());
   const [keyTopics, setKeyTopics] = useState<string[]>(['']);
   const [resources, setResources] = useState<ShortResource[]>(emptyResources);
   const [shareUrl, setShareUrl] = useState('');
@@ -86,7 +95,15 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
       setCoverImage(short.coverImage || '');
       setVideoUrl(short.videoUrl || '');
       setSpeaker(short.speaker || '');
+      setSpeakerAr(short.speakerAr || '');
       setDescription(short.description || '');
+      setDescriptionAr(short.descriptionAr || '');
+      setMachineFlags({
+        videoTitleAr: getIsMachineFlag(short, 'videoTitleAr'),
+        speakerAr: getIsMachineFlag(short, 'speakerAr'),
+        descriptionAr: getIsMachineFlag(short, 'descriptionAr'),
+      });
+      setFailedFields(new Set());
       setKeyTopics(short.keyTopics?.length ? short.keyTopics : ['']);
       setResources(short.resources?.length ? short.resources : emptyResources);
       setShareUrl(short.shareUrl || '');
@@ -112,7 +129,11 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
       setCoverImage('');
       setVideoUrl('');
       setSpeaker('');
+      setSpeakerAr('');
       setDescription('');
+      setDescriptionAr('');
+      setMachineFlags({});
+      setFailedFields(new Set());
       setKeyTopics(['']);
       setResources(emptyResources);
       setShareUrl('');
@@ -157,7 +178,9 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
       coverImage,
       videoUrl,
       speaker,
+      speakerAr,
       description,
+      descriptionAr,
       keyTopics: keyTopics.map((t) => t.trim()).filter(Boolean),
       resources: resources.filter((r) => r.title || r.url || r.type),
       shareUrl,
@@ -180,6 +203,31 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
     }
   }, [mutation.isError, mutation.error]);
 
+  // Reload the record after a retranslation and refresh the per-field status.
+  const reloadTranslations = useCallback(async () => {
+    if (!short) return;
+    const fresh = await getShort(short.id);
+    setVideoTitleAr(fresh.videoTitleAr || '');
+    setSpeakerAr(fresh.speakerAr || '');
+    setDescriptionAr(fresh.descriptionAr || '');
+    setMachineFlags({
+      videoTitleAr: getIsMachineFlag(fresh, 'videoTitleAr'),
+      speakerAr: getIsMachineFlag(fresh, 'speakerAr'),
+      descriptionAr: getIsMachineFlag(fresh, 'descriptionAr'),
+    });
+    const failed = new Set<string>();
+    if ((fresh.videoTitle || '').trim() && !(fresh.videoTitleAr || '').trim()) failed.add('videoTitleAr');
+    if ((fresh.speaker || '').trim() && !(fresh.speakerAr || '').trim()) failed.add('speakerAr');
+    if ((fresh.description || '').trim() && !(fresh.descriptionAr || '').trim()) failed.add('descriptionAr');
+    setFailedFields(failed);
+  }, [short]);
+
+  const translationStates: TranslationState[] = [
+    getTranslationState(videoTitle, videoTitleAr, machineFlags.videoTitleAr, failedFields.has('videoTitleAr')),
+    getTranslationState(description, descriptionAr, machineFlags.descriptionAr, failedFields.has('descriptionAr')),
+    getTranslationState(speaker, speakerAr, machineFlags.speakerAr, failedFields.has('speakerAr')),
+  ];
+
   const topicsCount = keyTopics.map((t) => t.trim()).filter(Boolean).length;
   const resourcesCount = resources.filter((r) => r.title || r.url || r.type).length;
 
@@ -195,11 +243,14 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
   );
 
   return (
+    <TranslationProvider model="short" id={short?.id} onTranslated={reloadTranslations}>
     <Modal isOpen={isOpen} onClose={onClose} title={short ? 'Edit Video Information' : 'Video Information'} footer={footer}>
       <div className="flex flex-col gap-8">
         {error && (
           <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>
         )}
+
+        <TranslationToolbar states={translationStates} title={videoTitle || undefined} />
 
         {/* Titles stay visible at the top — the required field is always in view */}
         <div className="flex gap-8">
@@ -207,7 +258,15 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
             <Input label="Video Title" required placeholder="Enter video title" value={videoTitle} onChange={(e) => setVideoTitle(e.target.value)} />
           </div>
           <div className="flex-1">
-            <Input label="Video Title (Arabic)" placeholder="عنوان الفيديو" value={videoTitleAr} onChange={(e) => setVideoTitleAr(e.target.value)} />
+            <ArabicField
+              label="Video Title (Arabic)"
+              placeholder="عنوان الفيديو"
+              englishValue={videoTitle}
+              value={videoTitleAr}
+              onChange={setVideoTitleAr}
+              isMachine={machineFlags.videoTitleAr}
+              failed={failedFields.has('videoTitleAr')}
+            />
           </div>
         </div>
 
@@ -295,12 +354,41 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
             />
           </div>
 
+          <div>
+            <ArabicField
+              label="Description (Arabic)"
+              placeholder="وصف الفيديو"
+              multiline
+              rows={5}
+              englishValue={description}
+              value={descriptionAr}
+              onChange={setDescriptionAr}
+              isMachine={machineFlags.descriptionAr}
+              failed={failedFields.has('descriptionAr')}
+            />
+          </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <ArabicField
+                label="Speaker (Arabic)"
+                placeholder="اسم المتحدث"
+                englishValue={speaker}
+                value={speakerAr}
+                onChange={setSpeakerAr}
+                isMachine={machineFlags.speakerAr}
+                failed={failedFields.has('speakerAr')}
+              />
+            </div>
+            <div className="flex-1" />
+          </div>
+
           <div className="flex gap-8">
             <div className="flex-1">
               <Input label="Share URL" placeholder="https://..." value={shareUrl} onChange={(e) => setShareUrl(e.target.value)} />
             </div>
             <div className="flex-1">
-              <Select label="Status" options={STATUS_OPTIONS} value={status} onChange={(e) => setStatus(e.target.value)} />
+              <StatusField value={status} onChange={setStatus} />
             </div>
           </div>
         </Section>
@@ -401,6 +489,7 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
         </Section>
       </div>
     </Modal>
+    </TranslationProvider>
   );
 }
 

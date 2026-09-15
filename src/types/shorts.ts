@@ -19,8 +19,10 @@ export interface Short {
   coverImage?: string;
   videoUrl?: string;
   speaker?: string;
+  speakerAr?: string;
   views?: number;
   description?: string;
+  descriptionAr?: string;
   keyTopics?: string[];
   resources?: ShortResource[];
   shareUrl?: string;

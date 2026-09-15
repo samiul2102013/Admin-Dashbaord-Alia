@@ -18,6 +18,14 @@ const statusLabels: Record<string, string> = {
   pending_payment: 'Pending Payment',
 };
 
+// Public-visibility meaning for content statuses (requirement: entity status UI
+// must spell out what reaches the public site).
+const statusHelp: Record<string, string> = {
+  Published: 'Published — available on the public site.',
+  Draft: 'Draft — not available on the public site.',
+  Pending: 'Pending — not available on the public site.',
+};
+
 interface StatusBadgeProps {
   status: string;
 }
@@ -26,6 +34,7 @@ export default function StatusBadge({ status }: StatusBadgeProps) {
   const label = statusLabels[status] || status;
   return (
     <span
+      title={statusHelp[label]}
       className={cn(
         'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold font-[family-name:var(--font-poppins)]',
         statusStyles[label] || statusStyles[status] || 'bg-gray-100 text-gray-600',

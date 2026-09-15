@@ -7,8 +7,12 @@ import CollapsibleSection from '@/components/shared/CollapsibleSection';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Button from '@/components/shared/Button';
+import ArabicField from '@/components/shared/ArabicField';
+import TranslationProvider from '@/components/shared/TranslationProvider';
+import TranslationToolbar from '@/components/shared/TranslationToolbar';
 import { getErrorMessage } from '@/lib/api-client';
 import { getAboutContent, saveAboutContent, aboutKeys } from '@/lib/services/about';
+import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
 import { useUpload } from '@/hooks/useMeta';
 import type { AboutContent } from '@/types/about';
 
@@ -62,6 +66,51 @@ function cloneData(d: AboutContent | null): AboutContent {
       };
 }
 
+const SCALAR_PAIRS: { ar: keyof AboutContent; en: keyof AboutContent }[] = [
+  { ar: 'titleAr', en: 'title' },
+  { ar: 'descriptionAr', en: 'description' },
+  { ar: 'browseSessionAr', en: 'browseSession' },
+  { ar: 'contactSupportAr', en: 'contactSupport' },
+  { ar: 'ourStoryAr', en: 'ourStory' },
+  { ar: 'ourStoryTextAr', en: 'ourStoryText' },
+  { ar: 'ourMissionAr', en: 'ourMission' },
+  { ar: 'ourMissionTextAr', en: 'ourMissionText' },
+  { ar: 'ourVisionAr', en: 'ourVision' },
+  { ar: 'ourVisionTextAr', en: 'ourVisionText' },
+  { ar: 'ourObjectiveAr', en: 'ourObjective' },
+  { ar: 'ourObjectiveTextAr', en: 'ourObjectiveText' },
+  { ar: 'whatWeOfferAr', en: 'whatWeOffer' },
+  { ar: 'whatWeOfferTextAr', en: 'whatWeOfferText' },
+  { ar: 'ourImpactAr', en: 'ourImpact' },
+  { ar: 'ourImpactTextAr', en: 'ourImpactText' },
+  { ar: 'whyChooseAr', en: 'whyChoose' },
+  { ar: 'whyChooseTextAr', en: 'whyChooseText' },
+  { ar: 'coreValuesAr', en: 'coreValues' },
+  { ar: 'coreValuesTextAr', en: 'coreValuesText' },
+];
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function readMachineFlags(record: AboutContent | null): Record<string, boolean> {
+  const flags: Record<string, boolean> = {};
+  SCALAR_PAIRS.forEach(({ ar }) => {
+    flags[ar] = getIsMachineFlag(record, ar);
+  });
+  return flags;
+}
+
+/** Fields the backend left blank despite an English source — retry candidates. */
+function readFailedFields(record: AboutContent | null): Set<string> {
+  const failed = new Set<string>();
+  if (!record) return failed;
+  SCALAR_PAIRS.forEach(({ ar, en }) => {
+    if (asString(record[en]).trim() && !asString(record[ar]).trim()) failed.add(ar);
+  });
+  return failed;
+}
+
 function loadCollapsed(): Set<string> {
   if (typeof window === 'undefined') return new Set();
   try {
@@ -91,6 +140,8 @@ export default function AboutContentEditor() {
   const [error, setError] = useState('');
   const [savedFlash, setSavedFlash] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const [machineFlags, setMachineFlags] = useState<Record<string, boolean>>({});
+  const [failedFields, setFailedFields] = useState<Set<string>>(new Set());
 
   const [visibility, setVisibility] = useState<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {};
@@ -101,6 +152,8 @@ export default function AboutContentEditor() {
   useEffect(() => {
     if (data) {
       setFormData(cloneData(data));
+      setMachineFlags(readMachineFlags(data));
+      setFailedFields(new Set());
       if (data.sectionVisibility) {
         setVisibility((prev) => ({ ...prev, ...data.sectionVisibility }));
       }
@@ -127,6 +180,24 @@ export default function AboutContentEditor() {
   const setField = useCallback((patch: Partial<AboutContent>) => {
     setFormData((prev) => ({ ...prev, ...patch }));
   }, []);
+
+  // Reload the record after a retranslation and refresh the per-field status.
+  const reloadTranslations = useCallback(async () => {
+    const updated = await getAboutContent();
+    if (!updated) return;
+    setFormData(cloneData(updated));
+    setMachineFlags(readMachineFlags(updated));
+    setFailedFields(readFailedFields(updated));
+  }, []);
+
+  const translationStates: TranslationState[] = SCALAR_PAIRS.map(({ ar, en }) =>
+    getTranslationState(
+      asString(formData[en]),
+      asString(formData[ar]),
+      machineFlags[ar],
+      failedFields.has(ar),
+    ),
+  );
 
   const updateArrayField = <K extends 'offerings' | 'impact'>(
     key: K,
@@ -168,6 +239,7 @@ export default function AboutContentEditor() {
   }
 
   return (
+    <TranslationProvider model="about" id={data?.id} onTranslated={reloadTranslations}>
     <div className="flex flex-col gap-5 flex-1 min-h-0 pb-20">
       {fetchError && (
         <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">
@@ -181,17 +253,27 @@ export default function AboutContentEditor() {
       )}
 
       {/* Published toggle */}
-      <div className="flex items-center gap-3 p-4 rounded-[12px] border border-secondary/30 bg-surface/50">
+      <div className="flex items-start gap-3 p-4 rounded-[12px] border border-secondary/30 bg-surface/50">
         <input
           type="checkbox"
           checked={formData.published}
           onChange={(e) => setField({ published: e.target.checked })}
-          className="w-5 h-5 accent-primary"
+          className="w-5 h-5 accent-primary mt-0.5"
         />
-        <span className="text-sm font-semibold font-[family-name:var(--font-poppins)]">
-          Published (visible on the website)
-        </span>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-semibold font-[family-name:var(--font-poppins)]">
+            Published — shows the complete public About page and all of its content. Turning this
+            off hides the whole page, not only the navigation link.
+          </span>
+          <span className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+            {formData.published
+              ? 'Currently published: the complete About page is live to the public.'
+              : 'Currently unpublished: the entire About page is hidden from the public.'}
+          </span>
+        </div>
       </div>
+
+      <TranslationToolbar states={translationStates} title={formData.title || undefined} />
 
       {/* Hero Section */}
       <CollapsibleSection
@@ -202,13 +284,43 @@ export default function AboutContentEditor() {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Title (EN)" value={formData.title} onChange={(e) => setField({ title: e.target.value })} />
-          <Input label="Title (AR)" value={formData.titleAr} onChange={(e) => setField({ titleAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Title (AR)"
+            englishValue={formData.title}
+            value={formData.titleAr}
+            onChange={(v) => setField({ titleAr: v })}
+            isMachine={machineFlags.titleAr}
+            failed={failedFields.has('titleAr')}
+          />
           <Textarea label="Description (EN)" rows={3} value={formData.description} onChange={(e) => setField({ description: e.target.value })} />
-          <Textarea label="Description (AR)" rows={3} value={formData.descriptionAr} onChange={(e) => setField({ descriptionAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Description (AR)"
+            multiline
+            rows={3}
+            englishValue={formData.description}
+            value={formData.descriptionAr}
+            onChange={(v) => setField({ descriptionAr: v })}
+            isMachine={machineFlags.descriptionAr}
+            failed={failedFields.has('descriptionAr')}
+          />
           <Input label="Browse Session (EN)" value={formData.browseSession} onChange={(e) => setField({ browseSession: e.target.value })} />
-          <Input label="Browse Session (AR)" value={formData.browseSessionAr} onChange={(e) => setField({ browseSessionAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Browse Session (AR)"
+            englishValue={formData.browseSession}
+            value={formData.browseSessionAr}
+            onChange={(v) => setField({ browseSessionAr: v })}
+            isMachine={machineFlags.browseSessionAr}
+            failed={failedFields.has('browseSessionAr')}
+          />
           <Input label="Contact Support (EN)" value={formData.contactSupport} onChange={(e) => setField({ contactSupport: e.target.value })} />
-          <Input label="Contact Support (AR)" value={formData.contactSupportAr} onChange={(e) => setField({ contactSupportAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Contact Support (AR)"
+            englishValue={formData.contactSupport}
+            value={formData.contactSupportAr}
+            onChange={(v) => setField({ contactSupportAr: v })}
+            isMachine={machineFlags.contactSupportAr}
+            failed={failedFields.has('contactSupportAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -245,14 +357,32 @@ export default function AboutContentEditor() {
         hint="Our story heading & text"
         visible={visibility.ourStory}
         onToggleVisible={() => toggleVisibility('ourStory')}
+        sectionName="Our Story"
+        hidePreview="the entire Our Story section"
         isOpen={!collapsed.has('ourStory')}
         onToggle={() => toggleCollapse('ourStory')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.ourStory} onChange={(e) => setField({ ourStory: e.target.value })} />
-          <Input label="Heading (AR)" value={formData.ourStoryAr} onChange={(e) => setField({ ourStoryAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Heading (AR)"
+            englishValue={formData.ourStory}
+            value={formData.ourStoryAr}
+            onChange={(v) => setField({ ourStoryAr: v })}
+            isMachine={machineFlags.ourStoryAr}
+            failed={failedFields.has('ourStoryAr')}
+          />
           <Textarea label="Text (EN)" rows={3} value={formData.ourStoryText} onChange={(e) => setField({ ourStoryText: e.target.value })} />
-          <Textarea label="Text (AR)" rows={3} value={formData.ourStoryTextAr} onChange={(e) => setField({ ourStoryTextAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Text (AR)"
+            multiline
+            rows={3}
+            englishValue={formData.ourStoryText}
+            value={formData.ourStoryTextAr}
+            onChange={(v) => setField({ ourStoryTextAr: v })}
+            isMachine={machineFlags.ourStoryTextAr}
+            failed={failedFields.has('ourStoryTextAr')}
+          />
         </div>
       </CollapsibleSection>
 
@@ -262,14 +392,32 @@ export default function AboutContentEditor() {
         hint="Our mission heading & text"
         visible={visibility.ourMission}
         onToggleVisible={() => toggleVisibility('ourMission')}
+        sectionName="Our Mission"
+        hidePreview="the entire Our Mission section"
         isOpen={!collapsed.has('ourMission')}
         onToggle={() => toggleCollapse('ourMission')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.ourMission} onChange={(e) => setField({ ourMission: e.target.value })} />
-          <Input label="Heading (AR)" value={formData.ourMissionAr} onChange={(e) => setField({ ourMissionAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Heading (AR)"
+            englishValue={formData.ourMission}
+            value={formData.ourMissionAr}
+            onChange={(v) => setField({ ourMissionAr: v })}
+            isMachine={machineFlags.ourMissionAr}
+            failed={failedFields.has('ourMissionAr')}
+          />
           <Textarea label="Text (EN)" rows={3} value={formData.ourMissionText} onChange={(e) => setField({ ourMissionText: e.target.value })} />
-          <Textarea label="Text (AR)" rows={3} value={formData.ourMissionTextAr} onChange={(e) => setField({ ourMissionTextAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Text (AR)"
+            multiline
+            rows={3}
+            englishValue={formData.ourMissionText}
+            value={formData.ourMissionTextAr}
+            onChange={(v) => setField({ ourMissionTextAr: v })}
+            isMachine={machineFlags.ourMissionTextAr}
+            failed={failedFields.has('ourMissionTextAr')}
+          />
         </div>
       </CollapsibleSection>
 
@@ -279,14 +427,32 @@ export default function AboutContentEditor() {
         hint="Our vision heading & text"
         visible={visibility.ourVision}
         onToggleVisible={() => toggleVisibility('ourVision')}
+        sectionName="Our Vision"
+        hidePreview="the entire Our Vision section"
         isOpen={!collapsed.has('ourVision')}
         onToggle={() => toggleCollapse('ourVision')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.ourVision} onChange={(e) => setField({ ourVision: e.target.value })} />
-          <Input label="Heading (AR)" value={formData.ourVisionAr} onChange={(e) => setField({ ourVisionAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Heading (AR)"
+            englishValue={formData.ourVision}
+            value={formData.ourVisionAr}
+            onChange={(v) => setField({ ourVisionAr: v })}
+            isMachine={machineFlags.ourVisionAr}
+            failed={failedFields.has('ourVisionAr')}
+          />
           <Textarea label="Text (EN)" rows={3} value={formData.ourVisionText} onChange={(e) => setField({ ourVisionText: e.target.value })} />
-          <Textarea label="Text (AR)" rows={3} value={formData.ourVisionTextAr} onChange={(e) => setField({ ourVisionTextAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Text (AR)"
+            multiline
+            rows={3}
+            englishValue={formData.ourVisionText}
+            value={formData.ourVisionTextAr}
+            onChange={(v) => setField({ ourVisionTextAr: v })}
+            isMachine={machineFlags.ourVisionTextAr}
+            failed={failedFields.has('ourVisionTextAr')}
+          />
         </div>
       </CollapsibleSection>
 
@@ -296,14 +462,32 @@ export default function AboutContentEditor() {
         hint="Our objective heading, text & objective cards"
         visible={visibility.ourObjective}
         onToggleVisible={() => toggleVisibility('ourObjective')}
+        sectionName="Our Objective"
+        hidePreview="the entire Our Objective section"
         isOpen={!collapsed.has('ourObjective')}
         onToggle={() => toggleCollapse('ourObjective')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.ourObjective} onChange={(e) => setField({ ourObjective: e.target.value })} />
-          <Input label="Heading (AR)" value={formData.ourObjectiveAr} onChange={(e) => setField({ ourObjectiveAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Heading (AR)"
+            englishValue={formData.ourObjective}
+            value={formData.ourObjectiveAr}
+            onChange={(v) => setField({ ourObjectiveAr: v })}
+            isMachine={machineFlags.ourObjectiveAr}
+            failed={failedFields.has('ourObjectiveAr')}
+          />
           <Textarea label="Text (EN)" rows={3} value={formData.ourObjectiveText} onChange={(e) => setField({ ourObjectiveText: e.target.value })} />
-          <Textarea label="Text (AR)" rows={3} value={formData.ourObjectiveTextAr} onChange={(e) => setField({ ourObjectiveTextAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Text (AR)"
+            multiline
+            rows={3}
+            englishValue={formData.ourObjectiveText}
+            value={formData.ourObjectiveTextAr}
+            onChange={(v) => setField({ ourObjectiveTextAr: v })}
+            isMachine={machineFlags.ourObjectiveTextAr}
+            failed={failedFields.has('ourObjectiveTextAr')}
+          />
         </div>
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -345,14 +529,32 @@ export default function AboutContentEditor() {
         hint="What we offer heading, text & offering cards"
         visible={visibility.whatWeOffer}
         onToggleVisible={() => toggleVisibility('whatWeOffer')}
+        sectionName="What We Offer"
+        hidePreview="the entire What We Offer section"
         isOpen={!collapsed.has('whatWeOffer')}
         onToggle={() => toggleCollapse('whatWeOffer')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.whatWeOffer} onChange={(e) => setField({ whatWeOffer: e.target.value })} />
-          <Input label="Heading (AR)" value={formData.whatWeOfferAr} onChange={(e) => setField({ whatWeOfferAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Heading (AR)"
+            englishValue={formData.whatWeOffer}
+            value={formData.whatWeOfferAr}
+            onChange={(v) => setField({ whatWeOfferAr: v })}
+            isMachine={machineFlags.whatWeOfferAr}
+            failed={failedFields.has('whatWeOfferAr')}
+          />
           <Textarea label="Text (EN)" rows={3} value={formData.whatWeOfferText} onChange={(e) => setField({ whatWeOfferText: e.target.value })} />
-          <Textarea label="Text (AR)" rows={3} value={formData.whatWeOfferTextAr} onChange={(e) => setField({ whatWeOfferTextAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Text (AR)"
+            multiline
+            rows={3}
+            englishValue={formData.whatWeOfferText}
+            value={formData.whatWeOfferTextAr}
+            onChange={(v) => setField({ whatWeOfferTextAr: v })}
+            isMachine={machineFlags.whatWeOfferTextAr}
+            failed={failedFields.has('whatWeOfferTextAr')}
+          />
         </div>
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -378,10 +580,24 @@ export default function AboutContentEditor() {
                 <p className="text-[11px] font-bold text-text-secondary mb-2 font-[family-name:var(--font-manrope)]">Offering {i + 1}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input label="Title (EN)" value={item.title} onChange={(e) => updateArrayField('offerings', i, { title: e.target.value })} />
-                  <Input label="Title (AR)" value={item.titleAr} onChange={(e) => updateArrayField('offerings', i, { titleAr: e.target.value })} dir="rtl" />
+                  <ArabicField
+                    label="Title (AR)"
+                    statusOnly
+                    englishValue={item.title}
+                    value={item.titleAr}
+                    onChange={(v) => updateArrayField('offerings', i, { titleAr: v })}
+                  />
                 </div>
                 <Textarea label="Description (EN)" rows={2} value={item.desc} onChange={(e) => updateArrayField('offerings', i, { desc: e.target.value })} />
-                <Textarea label="Description (AR)" rows={2} value={item.descAr} onChange={(e) => updateArrayField('offerings', i, { descAr: e.target.value })} dir="rtl" />
+                <ArabicField
+                  label="Description (AR)"
+                  statusOnly
+                  multiline
+                  rows={2}
+                  englishValue={item.desc}
+                  value={item.descAr}
+                  onChange={(v) => updateArrayField('offerings', i, { descAr: v })}
+                />
               </div>
             ))}
           </div>
@@ -394,14 +610,32 @@ export default function AboutContentEditor() {
         hint="Our impact heading, text & stats"
         visible={visibility.ourImpact}
         onToggleVisible={() => toggleVisibility('ourImpact')}
+        sectionName="Our Impact"
+        hidePreview="the entire Our Impact section"
         isOpen={!collapsed.has('ourImpact')}
         onToggle={() => toggleCollapse('ourImpact')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.ourImpact} onChange={(e) => setField({ ourImpact: e.target.value })} />
-          <Input label="Heading (AR)" value={formData.ourImpactAr} onChange={(e) => setField({ ourImpactAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Heading (AR)"
+            englishValue={formData.ourImpact}
+            value={formData.ourImpactAr}
+            onChange={(v) => setField({ ourImpactAr: v })}
+            isMachine={machineFlags.ourImpactAr}
+            failed={failedFields.has('ourImpactAr')}
+          />
           <Textarea label="Text (EN)" rows={3} value={formData.ourImpactText} onChange={(e) => setField({ ourImpactText: e.target.value })} />
-          <Textarea label="Text (AR)" rows={3} value={formData.ourImpactTextAr} onChange={(e) => setField({ ourImpactTextAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Text (AR)"
+            multiline
+            rows={3}
+            englishValue={formData.ourImpactText}
+            value={formData.ourImpactTextAr}
+            onChange={(v) => setField({ ourImpactTextAr: v })}
+            isMachine={machineFlags.ourImpactTextAr}
+            failed={failedFields.has('ourImpactTextAr')}
+          />
         </div>
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -427,9 +661,21 @@ export default function AboutContentEditor() {
                 <p className="text-[11px] font-bold text-text-secondary mb-2 font-[family-name:var(--font-manrope)]">Stat {i + 1}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input label="Label (EN)" value={item.label} onChange={(e) => updateArrayField('impact', i, { label: e.target.value })} />
-                  <Input label="Label (AR)" value={item.labelAr} onChange={(e) => updateArrayField('impact', i, { labelAr: e.target.value })} dir="rtl" />
+                  <ArabicField
+                    label="Label (AR)"
+                    statusOnly
+                    englishValue={item.label}
+                    value={item.labelAr}
+                    onChange={(v) => updateArrayField('impact', i, { labelAr: v })}
+                  />
                   <Input label="Value (EN)" value={item.value} onChange={(e) => updateArrayField('impact', i, { value: e.target.value })} />
-                  <Input label="Value (AR)" value={item.valueAr} onChange={(e) => updateArrayField('impact', i, { valueAr: e.target.value })} dir="rtl" />
+                  <ArabicField
+                    label="Value (AR)"
+                    statusOnly
+                    englishValue={item.value}
+                    value={item.valueAr}
+                    onChange={(v) => updateArrayField('impact', i, { valueAr: v })}
+                  />
                 </div>
               </div>
             ))}
@@ -443,14 +689,32 @@ export default function AboutContentEditor() {
         hint="Why choose heading, text & value cards"
         visible={visibility.whyChoose}
         onToggleVisible={() => toggleVisibility('whyChoose')}
+        sectionName="Why Choose"
+        hidePreview="the entire Why Choose section"
         isOpen={!collapsed.has('whyChoose')}
         onToggle={() => toggleCollapse('whyChoose')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.whyChoose} onChange={(e) => setField({ whyChoose: e.target.value })} />
-          <Input label="Heading (AR)" value={formData.whyChooseAr} onChange={(e) => setField({ whyChooseAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Heading (AR)"
+            englishValue={formData.whyChoose}
+            value={formData.whyChooseAr}
+            onChange={(v) => setField({ whyChooseAr: v })}
+            isMachine={machineFlags.whyChooseAr}
+            failed={failedFields.has('whyChooseAr')}
+          />
           <Textarea label="Text (EN)" rows={3} value={formData.whyChooseText} onChange={(e) => setField({ whyChooseText: e.target.value })} />
-          <Textarea label="Text (AR)" rows={3} value={formData.whyChooseTextAr} onChange={(e) => setField({ whyChooseTextAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Text (AR)"
+            multiline
+            rows={3}
+            englishValue={formData.whyChooseText}
+            value={formData.whyChooseTextAr}
+            onChange={(v) => setField({ whyChooseTextAr: v })}
+            isMachine={machineFlags.whyChooseTextAr}
+            failed={failedFields.has('whyChooseTextAr')}
+          />
         </div>
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -492,14 +756,32 @@ export default function AboutContentEditor() {
         hint="Core values heading, text & value pills"
         visible={visibility.coreValues}
         onToggleVisible={() => toggleVisibility('coreValues')}
+        sectionName="Core Values"
+        hidePreview="the entire Core Values section"
         isOpen={!collapsed.has('coreValues')}
         onToggle={() => toggleCollapse('coreValues')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Heading (EN)" value={formData.coreValues} onChange={(e) => setField({ coreValues: e.target.value })} />
-          <Input label="Heading (AR)" value={formData.coreValuesAr} onChange={(e) => setField({ coreValuesAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Heading (AR)"
+            englishValue={formData.coreValues}
+            value={formData.coreValuesAr}
+            onChange={(v) => setField({ coreValuesAr: v })}
+            isMachine={machineFlags.coreValuesAr}
+            failed={failedFields.has('coreValuesAr')}
+          />
           <Textarea label="Text (EN)" rows={3} value={formData.coreValuesText} onChange={(e) => setField({ coreValuesText: e.target.value })} />
-          <Textarea label="Text (AR)" rows={3} value={formData.coreValuesTextAr} onChange={(e) => setField({ coreValuesTextAr: e.target.value })} dir="rtl" />
+          <ArabicField
+            label="Text (AR)"
+            multiline
+            rows={3}
+            englishValue={formData.coreValuesText}
+            value={formData.coreValuesTextAr}
+            onChange={(v) => setField({ coreValuesTextAr: v })}
+            isMachine={machineFlags.coreValuesTextAr}
+            failed={failedFields.has('coreValuesTextAr')}
+          />
         </div>
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -547,6 +829,7 @@ export default function AboutContentEditor() {
         </Button>
       </div>
     </div>
+    </TranslationProvider>
   );
 }
 

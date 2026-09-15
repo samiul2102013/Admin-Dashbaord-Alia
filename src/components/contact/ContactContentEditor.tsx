@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Save, Loader2, CheckCircle2, Plus, Trash2,
   Eye, EyeOff, ChevronDown, ChevronUp,
@@ -8,9 +8,12 @@ import {
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Button from '@/components/shared/Button';
+import ArabicField from '@/components/shared/ArabicField';
+import TranslationProvider from '@/components/shared/TranslationProvider';
+import TranslationToolbar from '@/components/shared/TranslationToolbar';
 import { getErrorMessage } from '@/lib/api-client';
 import { getContactContent, saveContactContent } from '@/lib/services/contact';
-import { useUpload } from '@/hooks/useMeta';
+import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
 import type { ContactContent } from '@/types/contact';
 
 /* ── Default data (mirrors i18n fallbacks) ──────────────────────────────── */
@@ -45,6 +48,65 @@ function cloneData(d: ContactContent | null): ContactContent {
       };
 }
 
+/* ── Translation field map ─────────────────────────────────────────────── */
+
+const SCALAR_PAIRS: { ar: keyof ContactContent; en: keyof ContactContent }[] = [
+  { ar: 'titleAr', en: 'title' },
+  { ar: 'descriptionAr', en: 'description' },
+  { ar: 'browseSessionAr', en: 'browseSession' },
+  { ar: 'contactSupportAr', en: 'contactSupport' },
+  { ar: 'sendMessageAr', en: 'sendMessage' },
+  { ar: 'sendMessageSubAr', en: 'sendMessageSub' },
+  { ar: 'fullNameAr', en: 'fullName' },
+  { ar: 'fullNamePlaceholderAr', en: 'fullNamePlaceholder' },
+  { ar: 'emailLabelAr', en: 'emailLabel' },
+  { ar: 'emailPlaceholderAr', en: 'emailPlaceholder' },
+  { ar: 'userTypeAr', en: 'userType' },
+  { ar: 'selectUserTypeAr', en: 'selectUserType' },
+  { ar: 'individualAr', en: 'individual' },
+  { ar: 'coupleAr', en: 'couple' },
+  { ar: 'organizationAr', en: 'organization' },
+  { ar: 'subjectLabelAr', en: 'subjectLabel' },
+  { ar: 'subjectPlaceholderAr', en: 'subjectPlaceholder' },
+  { ar: 'phoneLabelAr', en: 'phoneLabel' },
+  { ar: 'phonePlaceholderAr', en: 'phonePlaceholder' },
+  { ar: 'messageLabelAr', en: 'messageLabel' },
+  { ar: 'messagePlaceholderAr', en: 'messagePlaceholder' },
+  { ar: 'sendButtonAr', en: 'sendButton' },
+  { ar: 'successMessageAr', en: 'successMessage' },
+  { ar: 'sendingAr', en: 'sending' },
+  { ar: 'contactInfoAr', en: 'contactInfo' },
+  { ar: 'officeAddressAr', en: 'officeAddress' },
+  { ar: 'workingHoursAr', en: 'workingHours' },
+  { ar: 'generalInquiriesAr', en: 'generalInquiries' },
+  { ar: 'supportHeadingAr', en: 'supportHeading' },
+  { ar: 'ourLocationAr', en: 'ourLocation' },
+  { ar: 'ourLocationTextAr', en: 'ourLocationText' },
+  { ar: 'mapTitleAr', en: 'mapTitle' },
+];
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function readMachineFlags(record: ContactContent | null): Record<string, boolean> {
+  const flags: Record<string, boolean> = {};
+  SCALAR_PAIRS.forEach(({ ar }) => {
+    flags[ar] = getIsMachineFlag(record, ar);
+  });
+  return flags;
+}
+
+/** Fields the backend left blank despite an English source — retry candidates. */
+function readFailedFields(record: ContactContent | null): Set<string> {
+  const failed = new Set<string>();
+  if (!record) return failed;
+  SCALAR_PAIRS.forEach(({ ar, en }) => {
+    if (asString(record[en]).trim() && !asString(record[ar]).trim()) failed.add(ar);
+  });
+  return failed;
+}
+
 /* ── Section IDs ────────────────────────────────────────────────────────── */
 
 const SECTION_IDS = ['hero', 'formLabels', 'contactInfo', 'locationMap'] as const;
@@ -64,6 +126,10 @@ interface CollapsibleSectionProps {
   title: string;
   visible?: boolean;
   onToggleVisible?: () => void;
+  /** Real name of the public section this visibility toggle controls. */
+  sectionName?: string;
+  /** Concrete preview of what disappears, e.g. "the entire Form Labels section". */
+  hidePreview?: string;
   collapsed: boolean;
   onToggleCollapsed: () => void;
   children: React.ReactNode;
@@ -71,9 +137,11 @@ interface CollapsibleSectionProps {
 }
 
 function CollapsibleSection({
-  id, title, visible = true, onToggleVisible,
+  id, title, visible = true, onToggleVisible, sectionName, hidePreview,
   collapsed, onToggleCollapsed, children, hint,
 }: CollapsibleSectionProps) {
+  const publicName = sectionName ?? title;
+
   return (
     <div className="rounded-[12px] border border-secondary/30 overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-4 py-3 bg-surface">
@@ -103,7 +171,11 @@ function CollapsibleSection({
           <button
             type="button"
             onClick={onToggleVisible}
-            title={visible ? 'Hide this section on the user panel' : 'Show this section on the user panel'}
+            title={
+              visible
+                ? `Hide the "${publicName}" section from the public site`
+                : `Show the "${publicName}" section on the public site`
+            }
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer font-[family-name:var(--font-poppins)] shrink-0 ${
               visible
                 ? 'bg-primary/10 text-primary hover:bg-primary/20'
@@ -111,10 +183,16 @@ function CollapsibleSection({
             }`}
           >
             {visible ? <Eye size={13} /> : <EyeOff size={13} />}
-            {visible ? 'Visible' : 'Hidden'}
+            {visible ? 'Visible publicly' : 'Hidden publicly'}
           </button>
         )}
       </div>
+
+      {onToggleVisible && !visible && (
+        <div className="border-t border-secondary/20 bg-warning/5 px-4 py-2 text-xs text-warning font-[family-name:var(--font-poppins)]">
+          Hidden from the public site: {hidePreview ?? `the entire "${publicName}" section`}.
+        </div>
+      )}
 
       {!collapsed && (
         <div
@@ -125,54 +203,6 @@ function CollapsibleSection({
         >
           {children}
         </div>
-      )}
-    </div>
-  );
-}
-
-/* ── File upload component ───────────────────────────────────────────────── */
-
-interface FileUploadProps {
-  value: string;
-  label: string;
-  isUploading: boolean;
-  onUpload: (file: File) => void;
-}
-
-function FileUpload({ value, label, isUploading, onUpload }: FileUploadProps) {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) onUpload(file);
-    e.target.value = '';
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      {value && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={value}
-          alt={label}
-          className="h-28 w-full rounded-[10px] object-cover bg-secondary/20"
-        />
-      )}
-      <label className="w-full h-32 rounded-[10px] border-2 border-dashed border-secondary/40 bg-surface/50 flex items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
-        <input type="file" className="hidden" accept="image/*" onChange={handleChange} />
-        <span className="flex items-center gap-2 text-sm text-text-secondary font-[family-name:var(--font-poppins)]">
-          {isUploading ? (
-            <>
-              <Loader2 size={16} className="animate-spin text-primary" />
-              Uploading...
-            </>
-          ) : (
-            `+ ${label}`
-          )}
-        </span>
-      </label>
-      {value && (
-        <p className="text-xs text-primary break-all font-[family-name:var(--font-poppins)]">
-          {value.split('/').pop() || value}
-        </p>
       )}
     </div>
   );
@@ -232,7 +262,8 @@ export default function ContactContentEditor() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
-  const upload = useUpload();
+  const [machineFlags, setMachineFlags] = useState<Record<string, boolean>>({});
+  const [failedFields, setFailedFields] = useState<Set<string>>(new Set());
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
     if (typeof window === 'undefined') return {};
@@ -268,6 +299,8 @@ export default function ContactContentEditor() {
       .then((result) => {
         if (!mounted) return;
         setData(result ? cloneData(result) : cloneData(null));
+        setMachineFlags(readMachineFlags(result));
+        setFailedFields(new Set());
         if (result?.sectionVisibility) {
           setSectionVisibility((prev) => ({ ...prev, ...result.sectionVisibility }));
         }
@@ -279,6 +312,24 @@ export default function ContactContentEditor() {
 
   const setField = (patch: Partial<ContactContent>) =>
     setData((prev) => prev ? { ...prev, ...patch } : prev);
+
+  // Reload the record after a retranslation and refresh the per-field status.
+  const reloadTranslations = useCallback(async () => {
+    const updated = await getContactContent();
+    if (!updated) return;
+    setData(cloneData(updated));
+    setMachineFlags(readMachineFlags(updated));
+    setFailedFields(readFailedFields(updated));
+  }, []);
+
+  const translationStates: TranslationState[] = SCALAR_PAIRS.map(({ ar, en }) =>
+    getTranslationState(
+      asString(data?.[en]),
+      asString(data?.[ar]),
+      machineFlags[ar],
+      failedFields.has(ar),
+    ),
+  );
 
   const handleSave = async () => {
     if (!data) return;
@@ -315,19 +366,24 @@ export default function ContactContentEditor() {
   }
 
   return (
+    <TranslationProvider model="contact" id={data.id} onTranslated={reloadTranslations}>
     <div className="flex flex-col gap-5 flex-1 min-h-0 overflow-y-auto pb-8">
       {error && <p className="text-danger text-sm font-[family-name:var(--font-poppins)]">{error}</p>}
 
       {/* ── Global toggle ──────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 p-4 rounded-[12px] border border-secondary/30 bg-surface">
+      <div className="flex items-start justify-between gap-4 p-4 rounded-[12px] border border-secondary/30 bg-surface">
         <div className="flex flex-col gap-0.5">
           <span className="text-sm font-bold text-black font-[family-name:var(--font-poppins)]">
             Page visibility
           </span>
           <span className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
+            Published — shows the complete public Contact page and all of its content. Turning this
+            off hides the whole page, not only the navigation link.
+          </span>
+          <span className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
             {data.published
-              ? 'This content is visible on the website.'
-              : 'This content is hidden from the website.'}
+              ? 'Currently published: the complete Contact page is live to the public.'
+              : 'Currently unpublished: the entire Contact page is hidden from the public.'}
           </span>
         </div>
         <button
@@ -347,6 +403,8 @@ export default function ContactContentEditor() {
         </button>
       </div>
 
+      <TranslationToolbar states={translationStates} title={data.title || undefined} />
+
       {/* ── Hero Section ──────────────────────────────────────────────────── */}
       <CollapsibleSection
         id="hero"
@@ -357,37 +415,46 @@ export default function ContactContentEditor() {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Title (English)" value={data.title} onChange={(e) => setField({ title: e.target.value })} />
-          <Input label="Title (Arabic)" value={data.titleAr} onChange={(e) => setField({ titleAr: e.target.value })} />
+          <ArabicField
+            label="Title (Arabic)"
+            englishValue={data.title}
+            value={data.titleAr}
+            onChange={(v) => setField({ titleAr: v })}
+            isMachine={machineFlags.titleAr}
+            failed={failedFields.has('titleAr')}
+          />
         </div>
         <Textarea label="Description (English)" rows={3} value={data.description} onChange={(e) => setField({ description: e.target.value })} />
-        <Textarea label="Description (Arabic)" rows={3} value={data.descriptionAr} onChange={(e) => setField({ descriptionAr: e.target.value })} />
+        <ArabicField
+          label="Description (Arabic)"
+          multiline
+          rows={3}
+          englishValue={data.description}
+          value={data.descriptionAr}
+          onChange={(v) => setField({ descriptionAr: v })}
+          isMachine={machineFlags.descriptionAr}
+          failed={failedFields.has('descriptionAr')}
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Browse Session (English)" value={data.browseSession} onChange={(e) => setField({ browseSession: e.target.value })} />
-          <Input label="Browse Session (Arabic)" value={data.browseSessionAr} onChange={(e) => setField({ browseSessionAr: e.target.value })} />
+          <ArabicField
+            label="Browse Session (Arabic)"
+            englishValue={data.browseSession}
+            value={data.browseSessionAr}
+            onChange={(v) => setField({ browseSessionAr: v })}
+            isMachine={machineFlags.browseSessionAr}
+            failed={failedFields.has('browseSessionAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Contact Support (English)" value={data.contactSupport} onChange={(e) => setField({ contactSupport: e.target.value })} />
-          <Input label="Contact Support (Arabic)" value={data.contactSupportAr} onChange={(e) => setField({ contactSupportAr: e.target.value })} />
-        </div>
-        <div className="col-span-full">
-          <label className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)] mb-2 block">
-            Hero Image
-          </label>
-          <p className="text-[11px] text-text-secondary mb-2 font-[family-name:var(--font-poppins)]">
-            Recommended size: 1280 × 800 px. JPG / PNG / WebP, max 5 GB.
-          </p>
-          <FileUpload
-            value={''}
-            label="Upload Hero Image"
-            isUploading={upload.isPending}
-            onUpload={async (file) => {
-              try {
-                const res = await upload.mutateAsync(file);
-                void res;
-              } catch (uploadError) {
-                setError(`Image upload failed: ${getErrorMessage(uploadError)}`);
-              }
-            }}
+          <ArabicField
+            label="Contact Support (Arabic)"
+            englishValue={data.contactSupport}
+            value={data.contactSupportAr}
+            onChange={(v) => setField({ contactSupportAr: v })}
+            isMachine={machineFlags.contactSupportAr}
+            failed={failedFields.has('contactSupportAr')}
           />
         </div>
       </CollapsibleSection>
@@ -399,88 +466,230 @@ export default function ContactContentEditor() {
         hint={SECTION_META.formLabels.hint}
         visible={sectionVisibility.formLabels}
         onToggleVisible={() => toggleVisibility('formLabels')}
+        sectionName="Form Labels"
+        hidePreview="the entire Form Labels section (all contact-form headings, labels and placeholders)"
         collapsed={!!collapsed['formLabels']}
         onToggleCollapsed={() => toggleCollapse('formLabels')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Send Message Heading (EN)" value={data.sendMessage} onChange={(e) => setField({ sendMessage: e.target.value })} />
-          <Input label="Send Message Heading (AR)" value={data.sendMessageAr} onChange={(e) => setField({ sendMessageAr: e.target.value })} />
+          <ArabicField
+            label="Send Message Heading (AR)"
+            englishValue={data.sendMessage}
+            value={data.sendMessageAr}
+            onChange={(v) => setField({ sendMessageAr: v })}
+            isMachine={machineFlags.sendMessageAr}
+            failed={failedFields.has('sendMessageAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Send Message Sub (EN)" value={data.sendMessageSub} onChange={(e) => setField({ sendMessageSub: e.target.value })} />
-          <Input label="Send Message Sub (AR)" value={data.sendMessageSubAr} onChange={(e) => setField({ sendMessageSubAr: e.target.value })} />
+          <ArabicField
+            label="Send Message Sub (AR)"
+            englishValue={data.sendMessageSub}
+            value={data.sendMessageSubAr}
+            onChange={(v) => setField({ sendMessageSubAr: v })}
+            isMachine={machineFlags.sendMessageSubAr}
+            failed={failedFields.has('sendMessageSubAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Full Name Label (EN)" value={data.fullName} onChange={(e) => setField({ fullName: e.target.value })} />
-          <Input label="Full Name Label (AR)" value={data.fullNameAr} onChange={(e) => setField({ fullNameAr: e.target.value })} />
+          <ArabicField
+            label="Full Name Label (AR)"
+            englishValue={data.fullName}
+            value={data.fullNameAr}
+            onChange={(v) => setField({ fullNameAr: v })}
+            isMachine={machineFlags.fullNameAr}
+            failed={failedFields.has('fullNameAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Full Name Placeholder (EN)" value={data.fullNamePlaceholder} onChange={(e) => setField({ fullNamePlaceholder: e.target.value })} />
-          <Input label="Full Name Placeholder (AR)" value={data.fullNamePlaceholderAr} onChange={(e) => setField({ fullNamePlaceholderAr: e.target.value })} />
+          <ArabicField
+            label="Full Name Placeholder (AR)"
+            englishValue={data.fullNamePlaceholder}
+            value={data.fullNamePlaceholderAr}
+            onChange={(v) => setField({ fullNamePlaceholderAr: v })}
+            isMachine={machineFlags.fullNamePlaceholderAr}
+            failed={failedFields.has('fullNamePlaceholderAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Email Label (EN)" value={data.emailLabel} onChange={(e) => setField({ emailLabel: e.target.value })} />
-          <Input label="Email Label (AR)" value={data.emailLabelAr} onChange={(e) => setField({ emailLabelAr: e.target.value })} />
+          <ArabicField
+            label="Email Label (AR)"
+            englishValue={data.emailLabel}
+            value={data.emailLabelAr}
+            onChange={(v) => setField({ emailLabelAr: v })}
+            isMachine={machineFlags.emailLabelAr}
+            failed={failedFields.has('emailLabelAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Email Placeholder (EN)" value={data.emailPlaceholder} onChange={(e) => setField({ emailPlaceholder: e.target.value })} />
-          <Input label="Email Placeholder (AR)" value={data.emailPlaceholderAr} onChange={(e) => setField({ emailPlaceholderAr: e.target.value })} />
+          <ArabicField
+            label="Email Placeholder (AR)"
+            englishValue={data.emailPlaceholder}
+            value={data.emailPlaceholderAr}
+            onChange={(v) => setField({ emailPlaceholderAr: v })}
+            isMachine={machineFlags.emailPlaceholderAr}
+            failed={failedFields.has('emailPlaceholderAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="User Type Label (EN)" value={data.userType} onChange={(e) => setField({ userType: e.target.value })} />
-          <Input label="User Type Label (AR)" value={data.userTypeAr} onChange={(e) => setField({ userTypeAr: e.target.value })} />
+          <ArabicField
+            label="User Type Label (AR)"
+            englishValue={data.userType}
+            value={data.userTypeAr}
+            onChange={(v) => setField({ userTypeAr: v })}
+            isMachine={machineFlags.userTypeAr}
+            failed={failedFields.has('userTypeAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Select User Type (EN)" value={data.selectUserType} onChange={(e) => setField({ selectUserType: e.target.value })} />
-          <Input label="Select User Type (AR)" value={data.selectUserTypeAr} onChange={(e) => setField({ selectUserTypeAr: e.target.value })} />
+          <ArabicField
+            label="Select User Type (AR)"
+            englishValue={data.selectUserType}
+            value={data.selectUserTypeAr}
+            onChange={(v) => setField({ selectUserTypeAr: v })}
+            isMachine={machineFlags.selectUserTypeAr}
+            failed={failedFields.has('selectUserTypeAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Individual (EN)" value={data.individual} onChange={(e) => setField({ individual: e.target.value })} />
-          <Input label="Individual (AR)" value={data.individualAr} onChange={(e) => setField({ individualAr: e.target.value })} />
+          <ArabicField
+            label="Individual (AR)"
+            englishValue={data.individual}
+            value={data.individualAr}
+            onChange={(v) => setField({ individualAr: v })}
+            isMachine={machineFlags.individualAr}
+            failed={failedFields.has('individualAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Couple (EN)" value={data.couple} onChange={(e) => setField({ couple: e.target.value })} />
-          <Input label="Couple (AR)" value={data.coupleAr} onChange={(e) => setField({ coupleAr: e.target.value })} />
+          <ArabicField
+            label="Couple (AR)"
+            englishValue={data.couple}
+            value={data.coupleAr}
+            onChange={(v) => setField({ coupleAr: v })}
+            isMachine={machineFlags.coupleAr}
+            failed={failedFields.has('coupleAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Organization (EN)" value={data.organization} onChange={(e) => setField({ organization: e.target.value })} />
-          <Input label="Organization (AR)" value={data.organizationAr} onChange={(e) => setField({ organizationAr: e.target.value })} />
+          <ArabicField
+            label="Organization (AR)"
+            englishValue={data.organization}
+            value={data.organizationAr}
+            onChange={(v) => setField({ organizationAr: v })}
+            isMachine={machineFlags.organizationAr}
+            failed={failedFields.has('organizationAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Subject Label (EN)" value={data.subjectLabel} onChange={(e) => setField({ subjectLabel: e.target.value })} />
-          <Input label="Subject Label (AR)" value={data.subjectLabelAr} onChange={(e) => setField({ subjectLabelAr: e.target.value })} />
+          <ArabicField
+            label="Subject Label (AR)"
+            englishValue={data.subjectLabel}
+            value={data.subjectLabelAr}
+            onChange={(v) => setField({ subjectLabelAr: v })}
+            isMachine={machineFlags.subjectLabelAr}
+            failed={failedFields.has('subjectLabelAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Subject Placeholder (EN)" value={data.subjectPlaceholder} onChange={(e) => setField({ subjectPlaceholder: e.target.value })} />
-          <Input label="Subject Placeholder (AR)" value={data.subjectPlaceholderAr} onChange={(e) => setField({ subjectPlaceholderAr: e.target.value })} />
+          <ArabicField
+            label="Subject Placeholder (AR)"
+            englishValue={data.subjectPlaceholder}
+            value={data.subjectPlaceholderAr}
+            onChange={(v) => setField({ subjectPlaceholderAr: v })}
+            isMachine={machineFlags.subjectPlaceholderAr}
+            failed={failedFields.has('subjectPlaceholderAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Phone Label (EN)" value={data.phoneLabel} onChange={(e) => setField({ phoneLabel: e.target.value })} />
-          <Input label="Phone Label (AR)" value={data.phoneLabelAr} onChange={(e) => setField({ phoneLabelAr: e.target.value })} />
+          <ArabicField
+            label="Phone Label (AR)"
+            englishValue={data.phoneLabel}
+            value={data.phoneLabelAr}
+            onChange={(v) => setField({ phoneLabelAr: v })}
+            isMachine={machineFlags.phoneLabelAr}
+            failed={failedFields.has('phoneLabelAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Phone Placeholder (EN)" value={data.phonePlaceholder} onChange={(e) => setField({ phonePlaceholder: e.target.value })} />
-          <Input label="Phone Placeholder (AR)" value={data.phonePlaceholderAr} onChange={(e) => setField({ phonePlaceholderAr: e.target.value })} />
+          <ArabicField
+            label="Phone Placeholder (AR)"
+            englishValue={data.phonePlaceholder}
+            value={data.phonePlaceholderAr}
+            onChange={(v) => setField({ phonePlaceholderAr: v })}
+            isMachine={machineFlags.phonePlaceholderAr}
+            failed={failedFields.has('phonePlaceholderAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Message Label (EN)" value={data.messageLabel} onChange={(e) => setField({ messageLabel: e.target.value })} />
-          <Input label="Message Label (AR)" value={data.messageLabelAr} onChange={(e) => setField({ messageLabelAr: e.target.value })} />
+          <ArabicField
+            label="Message Label (AR)"
+            englishValue={data.messageLabel}
+            value={data.messageLabelAr}
+            onChange={(v) => setField({ messageLabelAr: v })}
+            isMachine={machineFlags.messageLabelAr}
+            failed={failedFields.has('messageLabelAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Message Placeholder (EN)" value={data.messagePlaceholder} onChange={(e) => setField({ messagePlaceholder: e.target.value })} />
-          <Input label="Message Placeholder (AR)" value={data.messagePlaceholderAr} onChange={(e) => setField({ messagePlaceholderAr: e.target.value })} />
+          <ArabicField
+            label="Message Placeholder (AR)"
+            englishValue={data.messagePlaceholder}
+            value={data.messagePlaceholderAr}
+            onChange={(v) => setField({ messagePlaceholderAr: v })}
+            isMachine={machineFlags.messagePlaceholderAr}
+            failed={failedFields.has('messagePlaceholderAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Send Button (EN)" value={data.sendButton} onChange={(e) => setField({ sendButton: e.target.value })} />
-          <Input label="Send Button (AR)" value={data.sendButtonAr} onChange={(e) => setField({ sendButtonAr: e.target.value })} />
+          <ArabicField
+            label="Send Button (AR)"
+            englishValue={data.sendButton}
+            value={data.sendButtonAr}
+            onChange={(v) => setField({ sendButtonAr: v })}
+            isMachine={machineFlags.sendButtonAr}
+            failed={failedFields.has('sendButtonAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Success Message (EN)" value={data.successMessage} onChange={(e) => setField({ successMessage: e.target.value })} />
-          <Input label="Success Message (AR)" value={data.successMessageAr} onChange={(e) => setField({ successMessageAr: e.target.value })} />
+          <ArabicField
+            label="Success Message (AR)"
+            englishValue={data.successMessage}
+            value={data.successMessageAr}
+            onChange={(v) => setField({ successMessageAr: v })}
+            isMachine={machineFlags.successMessageAr}
+            failed={failedFields.has('successMessageAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Sending Label (EN)" value={data.sending} onChange={(e) => setField({ sending: e.target.value })} />
-          <Input label="Sending Label (AR)" value={data.sendingAr} onChange={(e) => setField({ sendingAr: e.target.value })} />
+          <ArabicField
+            label="Sending Label (AR)"
+            englishValue={data.sending}
+            value={data.sendingAr}
+            onChange={(v) => setField({ sendingAr: v })}
+            isMachine={machineFlags.sendingAr}
+            failed={failedFields.has('sendingAr')}
+          />
         </div>
       </CollapsibleSection>
 
@@ -491,29 +700,71 @@ export default function ContactContentEditor() {
         hint={SECTION_META.contactInfo.hint}
         visible={sectionVisibility.contactInfo}
         onToggleVisible={() => toggleVisibility('contactInfo')}
+        sectionName="Contact Info"
+        hidePreview="the entire Contact Info section (office address, working hours and support details)"
         collapsed={!!collapsed['contactInfo']}
         onToggleCollapsed={() => toggleCollapse('contactInfo')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Contact Info Heading (EN)" value={data.contactInfo} onChange={(e) => setField({ contactInfo: e.target.value })} />
-          <Input label="Contact Info Heading (AR)" value={data.contactInfoAr} onChange={(e) => setField({ contactInfoAr: e.target.value })} />
+          <ArabicField
+            label="Contact Info Heading (AR)"
+            englishValue={data.contactInfo}
+            value={data.contactInfoAr}
+            onChange={(v) => setField({ contactInfoAr: v })}
+            isMachine={machineFlags.contactInfoAr}
+            failed={failedFields.has('contactInfoAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Office Address Heading (EN)" value={data.officeAddress} onChange={(e) => setField({ officeAddress: e.target.value })} />
-          <Input label="Office Address Heading (AR)" value={data.officeAddressAr} onChange={(e) => setField({ officeAddressAr: e.target.value })} />
+          <ArabicField
+            label="Office Address Heading (AR)"
+            englishValue={data.officeAddress}
+            value={data.officeAddressAr}
+            onChange={(v) => setField({ officeAddressAr: v })}
+            isMachine={machineFlags.officeAddressAr}
+            failed={failedFields.has('officeAddressAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Working Hours Heading (EN)" value={data.workingHours} onChange={(e) => setField({ workingHours: e.target.value })} />
-          <Input label="Working Hours Heading (AR)" value={data.workingHoursAr} onChange={(e) => setField({ workingHoursAr: e.target.value })} />
+          <ArabicField
+            label="Working Hours Heading (AR)"
+            englishValue={data.workingHours}
+            value={data.workingHoursAr}
+            onChange={(v) => setField({ workingHoursAr: v })}
+            isMachine={machineFlags.workingHoursAr}
+            failed={failedFields.has('workingHoursAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="General Inquiries Heading (EN)" value={data.generalInquiries} onChange={(e) => setField({ generalInquiries: e.target.value })} />
-          <Input label="General Inquiries Heading (AR)" value={data.generalInquiriesAr} onChange={(e) => setField({ generalInquiriesAr: e.target.value })} />
+          <ArabicField
+            label="General Inquiries Heading (AR)"
+            englishValue={data.generalInquiries}
+            value={data.generalInquiriesAr}
+            onChange={(v) => setField({ generalInquiriesAr: v })}
+            isMachine={machineFlags.generalInquiriesAr}
+            failed={failedFields.has('generalInquiriesAr')}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Support Heading (EN)" value={data.supportHeading} onChange={(e) => setField({ supportHeading: e.target.value })} />
-          <Input label="Support Heading (AR)" value={data.supportHeadingAr} onChange={(e) => setField({ supportHeadingAr: e.target.value })} />
+          <ArabicField
+            label="Support Heading (AR)"
+            englishValue={data.supportHeading}
+            value={data.supportHeadingAr}
+            onChange={(v) => setField({ supportHeadingAr: v })}
+            isMachine={machineFlags.supportHeadingAr}
+            failed={failedFields.has('supportHeadingAr')}
+          />
         </div>
+
+        <p className="text-[11px] text-text-secondary font-[family-name:var(--font-poppins)] -mt-2">
+          List items (address, hours, inquiries and support lines) are translated by the machine
+          engine at read time; their Arabic lists are not stored, so no per-item status is shown.
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <StringList
@@ -572,18 +823,43 @@ export default function ContactContentEditor() {
         hint={SECTION_META.locationMap.hint}
         visible={sectionVisibility.locationMap}
         onToggleVisible={() => toggleVisibility('locationMap')}
+        sectionName="Location & Map"
+        hidePreview="the entire Location & Map section (location heading, text and embedded map)"
         collapsed={!!collapsed['locationMap']}
         onToggleCollapsed={() => toggleCollapse('locationMap')}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Our Location Heading (EN)" value={data.ourLocation} onChange={(e) => setField({ ourLocation: e.target.value })} />
-          <Input label="Our Location Heading (AR)" value={data.ourLocationAr} onChange={(e) => setField({ ourLocationAr: e.target.value })} />
+          <ArabicField
+            label="Our Location Heading (AR)"
+            englishValue={data.ourLocation}
+            value={data.ourLocationAr}
+            onChange={(v) => setField({ ourLocationAr: v })}
+            isMachine={machineFlags.ourLocationAr}
+            failed={failedFields.has('ourLocationAr')}
+          />
         </div>
         <Textarea label="Our Location Text (English)" rows={2} value={data.ourLocationText} onChange={(e) => setField({ ourLocationText: e.target.value })} />
-        <Textarea label="Our Location Text (Arabic)" rows={2} value={data.ourLocationTextAr} onChange={(e) => setField({ ourLocationTextAr: e.target.value })} />
+        <ArabicField
+          label="Our Location Text (Arabic)"
+          multiline
+          rows={2}
+          englishValue={data.ourLocationText}
+          value={data.ourLocationTextAr}
+          onChange={(v) => setField({ ourLocationTextAr: v })}
+          isMachine={machineFlags.ourLocationTextAr}
+          failed={failedFields.has('ourLocationTextAr')}
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Input label="Map Title (EN)" value={data.mapTitle} onChange={(e) => setField({ mapTitle: e.target.value })} />
-          <Input label="Map Title (AR)" value={data.mapTitleAr} onChange={(e) => setField({ mapTitleAr: e.target.value })} />
+          <ArabicField
+            label="Map Title (AR)"
+            englishValue={data.mapTitle}
+            value={data.mapTitleAr}
+            onChange={(v) => setField({ mapTitleAr: v })}
+            isMachine={machineFlags.mapTitleAr}
+            failed={failedFields.has('mapTitleAr')}
+          />
         </div>
         <Input label="Map Embed URL" value={data.mapEmbedUrl} onChange={(e) => setField({ mapEmbedUrl: e.target.value })} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -605,5 +881,6 @@ export default function ContactContentEditor() {
         </Button>
       </div>
     </div>
+    </TranslationProvider>
   );
 }
