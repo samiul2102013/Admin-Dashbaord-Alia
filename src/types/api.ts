@@ -54,6 +54,8 @@ export interface ChunkUploadChunkResponse {
 
 export interface ChunkedUploadOptions {
   chunkSizeBytes?: number;
+  /** Number of chunks uploaded in parallel (default 4). */
+  concurrency?: number;
   category?: 'image' | 'video' | 'document';
   alt?: string;
   altAr?: string;

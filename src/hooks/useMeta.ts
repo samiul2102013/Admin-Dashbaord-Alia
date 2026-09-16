@@ -26,6 +26,10 @@ export function useUpload() {
 }
 
 const DEFAULT_CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB (reliable on all networks, smooth progress)
+// How many chunks to push in parallel. Chunks are small, so sending a few at
+// once hides per-request round-trip latency and makes large videos much faster
+// than a strictly sequential loop, without hammering the server.
+const DEFAULT_CONCURRENCY = 4;
 
 function uuidv4(): string {
   // RFC4122 v4 UUID using crypto when available.
@@ -138,6 +142,10 @@ export function useChunkedUpload() {
     async (file: File, options: ChunkedUploadOptions = {}): Promise<UploadResponse> => {
       const chunkSize = options.chunkSizeBytes ?? DEFAULT_CHUNK_SIZE;
       const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
+      const concurrency = Math.max(
+        1,
+        Math.min(options.concurrency ?? DEFAULT_CONCURRENCY, totalChunks),
+      );
       const fileId = uuidv4();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -161,67 +169,88 @@ export function useChunkedUpload() {
         status: 'preparing',
       });
 
+      // Per-chunk transferred bytes. Progress is the sum across every chunk, so
+      // it advances continuously even while several chunks are in flight.
+      const chunkLoaded = new Array<number>(totalChunks).fill(0);
+      const completedChunks = new Set<number>();
+
+      const emit = (
+        status: ChunkedUploadProgress['status'],
+        opts: { retrying?: boolean; retryAttempt?: number } = {},
+      ) => {
+        const transferred = Math.min(
+          file.size,
+          chunkLoaded.reduce((sum, n) => sum + n, 0),
+        );
+        const isDone = status === 'finalizing' || status === 'completed';
+        const percent = file.size > 0 ? Math.min(100, Math.round((transferred / file.size) * 100)) : 0;
+        const state: ChunkedUploadProgress = {
+          fileId,
+          bytesUploaded: isDone ? file.size : transferred,
+          totalBytes: file.size,
+          chunksUploaded: completedChunks.size,
+          totalChunks,
+          percent: isDone ? 100 : percent,
+          status,
+          retrying: opts.retrying ?? false,
+          retryAttempt: opts.retryAttempt,
+        };
+        setProgress(state);
+        options.onProgress?.(state);
+      };
+
+      emit('preparing');
+
       try {
-        for (let i = 0; i < totalChunks; i++) {
-          if (controller.signal.aborted) throw new Error('aborted');
-          const start = i * chunkSize;
+        let nextIndex = 0;
+
+        const uploadOne = async (index: number): Promise<void> => {
+          const start = index * chunkSize;
           const end = Math.min(start + chunkSize, file.size);
           const blob = file.slice(start, end);
 
-          const response = await uploadChunkWithRetry(
+          await uploadChunkWithRetry(
             {
               fileId,
-              chunkIndex: i,
+              chunkIndex: index,
               totalChunks,
               filename: file.name,
               mimeType: file.type,
               chunk: blob,
               signal: controller.signal,
+              onUploadProgress: (loaded) => {
+                chunkLoaded[index] = Math.min(loaded, blob.size);
+                emit('uploading');
+              },
             },
             4,
             (retryAttempt) => {
-              const retryingState: ChunkedUploadProgress = {
-                fileId,
-                bytesUploaded: i * chunkSize,
-                totalBytes: file.size,
-                chunksUploaded: i,
-                totalChunks,
-                percent: Math.min(100, Math.round(((i * chunkSize) / file.size) * 100)),
-                status: 'uploading',
-                retrying: true,
-                retryAttempt,
-              };
-              setProgress(retryingState);
-              options.onProgress?.(retryingState);
+              // A retry re-sends the whole chunk: clear its partial contribution
+              // so the bar doesn't double-count it.
+              chunkLoaded[index] = 0;
+              emit('uploading', { retrying: true, retryAttempt });
             },
           );
 
-          const percent = Math.min(100, Math.round((response.bytesReceived / file.size) * 100));
-          const nextState: ChunkedUploadProgress = {
-            fileId,
-            bytesUploaded: response.bytesReceived,
-            totalBytes: file.size,
-            chunksUploaded: response.received.length,
-            totalChunks,
-            percent,
-            status: 'uploading',
-            retrying: false,
-          };
-          setProgress(nextState);
-          options.onProgress?.(nextState);
-        }
-
-        const finalizing: ChunkedUploadProgress = {
-          fileId,
-          bytesUploaded: file.size,
-          totalBytes: file.size,
-          chunksUploaded: totalChunks,
-          totalChunks,
-          percent: 100,
-          status: 'finalizing',
+          chunkLoaded[index] = blob.size;
+          completedChunks.add(index);
+          emit('uploading');
         };
-        setProgress(finalizing);
-        options.onProgress?.(finalizing);
+
+        // Bounded-concurrency worker pool. Parallel chunks hide per-request
+        // round-trip latency (Cloudflare/Traefik), which is what made large
+        // videos feel like they were "stuck, with no progress".
+        const workers = Array.from({ length: concurrency }, async () => {
+          for (;;) {
+            if (controller.signal.aborted) throw new Error('aborted');
+            const index = nextIndex++;
+            if (index >= totalChunks) return;
+            await uploadOne(index);
+          }
+        });
+        await Promise.all(workers);
+
+        emit('finalizing');
 
         const result = await completeChunkedUploadWithRetry({
           fileId,
@@ -233,12 +262,7 @@ export function useChunkedUpload() {
           signal: controller.signal,
         });
 
-        const completed: ChunkedUploadProgress = {
-          ...finalizing,
-          status: 'completed',
-        };
-        setProgress(completed);
-        options.onProgress?.(completed);
+        emit('completed');
         return result;
       } catch (e: any) {
         const status: ChunkedUploadProgress['status'] =

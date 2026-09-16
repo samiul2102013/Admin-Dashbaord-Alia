@@ -41,6 +41,7 @@ export async function uploadChunk(params: {
   mimeType?: string;
   chunk: Blob;
   signal?: AbortSignal;
+  onUploadProgress?: (bytesLoadedThisChunk: number) => void;
 }): Promise<ChunkUploadChunkResponse> {
   const formData = new FormData();
   formData.append('file_id', params.fileId);
@@ -53,6 +54,11 @@ export async function uploadChunk(params: {
   const { data } = await apiClient.post<ChunkUploadChunkResponse>('/uploads', formData, {
     timeout: 120000,
     signal: params.signal,
+    // Per-chunk transfer progress so the bar advances *inside* a chunk instead
+    // of jumping only when the whole chunk finishes.
+    onUploadProgress: params.onUploadProgress
+      ? (evt) => params.onUploadProgress!(evt.loaded ?? 0)
+      : undefined,
   });
   return data;
 }
