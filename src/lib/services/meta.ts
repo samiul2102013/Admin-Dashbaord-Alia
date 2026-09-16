@@ -29,7 +29,7 @@ export async function getMeta(): Promise<MetaPayload> {
 export async function uploadFile(file: File): Promise<UploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
-  const { data } = await apiClient.post<UploadResponse>('/uploads', formData, { timeout: 0 });
+  const { data } = await apiClient.post<UploadResponse>('/uploads', formData, { timeout: 300000 });
   return data;
 }
 
@@ -51,7 +51,7 @@ export async function uploadChunk(params: {
   formData.append('chunk', params.chunk, `${params.filename}.part${params.chunkIndex}`);
 
   const { data } = await apiClient.post<ChunkUploadChunkResponse>('/uploads', formData, {
-    timeout: 0,
+    timeout: 120000,
     signal: params.signal,
   });
   return data;
@@ -76,11 +76,25 @@ export async function completeChunkedUpload(params: {
       caption: params.caption,
       captionAr: params.captionAr,
     },
-    { timeout: 0, signal: params.signal },
+    { timeout: 300000, signal: params.signal },
   );
   return data;
 }
 
 export async function abortChunkedUpload(fileId: string): Promise<void> {
-  await apiClient.post('/uploads/abort', { fileId });
+  await apiClient.post('/uploads/abort', { fileId }, { timeout: 30000 });
+}
+
+export async function getUploadSession(fileId: string): Promise<{
+  success: boolean;
+  fileId: string;
+  received: number[];
+  total: number;
+  status: string;
+}> {
+  const { data } = await apiClient.get('/uploads', {
+    params: { file_id: fileId },
+    timeout: 30000,
+  });
+  return data;
 }

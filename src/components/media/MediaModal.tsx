@@ -52,6 +52,7 @@ export default function MediaModal({ isOpen, onClose, item }: MediaModalProps) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState<Partial<MediaItem>>(getDefaultData());
   const [error, setError] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -103,11 +104,11 @@ export default function MediaModal({ isOpen, onClose, item }: MediaModalProps) {
 
   const footer = (
     <div className="flex justify-center gap-4">
-      <Button variant="secondary" onClick={onClose} disabled={isPending}>
+      <Button variant="secondary" onClick={onClose} disabled={isPending || isUploading}>
         Cancel
       </Button>
-      <Button variant="primary" onClick={handleSubmit} isLoading={isPending}>
-        {item ? 'Update Media' : 'Add Media'}
+      <Button variant="primary" onClick={handleSubmit} isLoading={isPending || isUploading} disabled={isUploading}>
+        {isUploading ? 'Uploading file…' : item ? 'Update Media' : 'Add Media'}
       </Button>
     </div>
   );
@@ -131,6 +132,7 @@ export default function MediaModal({ isOpen, onClose, item }: MediaModalProps) {
             category={(formData.category as 'image' | 'video' | 'document') || 'image'}
             label="Upload File"
             onChange={(url) => setField({ fileUrl: url })}
+            onBusyChange={setIsUploading}
           />
         </div>
         <Input label="File URL" value={formData.fileUrl || ''} onChange={(e) => setField({ fileUrl: e.target.value })} placeholder="https://..." />

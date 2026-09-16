@@ -10,6 +10,7 @@ interface ChunkedUploaderProps {
   category?: 'image' | 'video' | 'document';
   accept?: string;
   onChange: (url: string) => void;
+  onBusyChange?: (isBusy: boolean) => void;
   helperText?: string;
 }
 
@@ -19,6 +20,7 @@ export default function ChunkedUploader({
   category = 'image',
   accept,
   onChange,
+  onBusyChange,
   helperText,
 }: ChunkedUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,12 +34,15 @@ export default function ChunkedUploader({
 
   async function handleFile(file: File) {
     setError('');
+    onBusyChange?.(true);
     try {
       const result = await upload(file, { category });
       onChange(result.url);
     } catch (e: any) {
       if (progress.status === 'aborted') return;
       setError(e?.message ?? 'Upload failed');
+    } finally {
+      onBusyChange?.(false);
     }
   }
 
@@ -50,11 +55,13 @@ export default function ChunkedUploader({
   function handleCancel() {
     void abort();
     reset();
+    onBusyChange?.(false);
   }
 
   function handleClear() {
     onChange('');
     reset();
+    onBusyChange?.(false);
   }
 
   return (
@@ -95,6 +102,8 @@ export default function ChunkedUploader({
             <span>
               {progress.status === 'finalizing'
                 ? 'Finalizing upload…'
+                : progress.retrying
+                ? `Uploading chunk ${progress.chunksUploaded + 1} of ${progress.totalChunks} (retrying ${progress.retryAttempt}…)`
                 : `Uploading chunk ${progress.chunksUploaded} of ${progress.totalChunks}`}
             </span>
             <button

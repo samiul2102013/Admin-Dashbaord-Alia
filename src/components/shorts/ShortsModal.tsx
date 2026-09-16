@@ -57,6 +57,9 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
   const [publishedAt, setPublishedAt] = useState('');
   const [coverImage, setCoverImage] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const isUploadingMedia = isUploadingCover || isUploadingVideo;
   const [speaker, setSpeaker] = useState('');
   const [speakerAr, setSpeakerAr] = useState('');
   const [description, setDescription] = useState('');
@@ -233,11 +236,11 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
 
   const footer = (
     <div className="flex justify-center gap-4">
-      <Button variant="secondary" onClick={onClose} disabled={isPending}>
+      <Button variant="secondary" onClick={onClose} disabled={isPending || isUploadingMedia}>
         Cancel
       </Button>
-      <Button variant="primary" onClick={handleSubmit} isLoading={isPending}>
-        {short ? 'Update' : 'Save'}
+      <Button variant="primary" onClick={handleSubmit} isLoading={isPending || isUploadingMedia} disabled={isUploadingMedia}>
+        {isUploadingMedia ? 'Uploading media…' : short ? 'Update' : 'Save'}
       </Button>
     </div>
   );
@@ -323,6 +326,7 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
                   category="image"
                   label="Upload Cover Image"
                   onChange={setCoverImage}
+                  onBusyChange={setIsUploadingCover}
                   helperText="Recommended 1280 × 720 px. JPG / PNG / WebP. Multi-GB supported."
                 />
               </div>
@@ -337,6 +341,7 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
                   category="video"
                   label="Upload Video"
                   onChange={setVideoUrl}
+                  onBusyChange={setIsUploadingVideo}
                   helperText="Recommended 1080p MP4. Up to 5 GB; chunked upload with progress."
                 />
               </div>

@@ -72,4 +72,6 @@ export interface ChunkedUploadProgress {
   percent: number;
   status: 'idle' | 'preparing' | 'uploading' | 'finalizing' | 'completed' | 'error' | 'aborted';
   errorMessage?: string;
+  retrying?: boolean;
+  retryAttempt?: number;
 }
