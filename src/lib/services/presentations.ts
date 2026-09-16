@@ -26,3 +26,10 @@ export async function updatePresentation(
   const { data } = await apiClient.put<Presentation>(`/admin/presentations/${id}`, payload);
   return data;
 }
+
+export async function createPresentation(
+  payload: Partial<Presentation>,
+): Promise<Presentation> {
+  const { data } = await apiClient.post<Presentation>('/admin/presentations', payload);
+  return data;
+}

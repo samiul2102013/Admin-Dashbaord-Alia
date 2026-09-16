@@ -12,7 +12,7 @@ import ArabicField from '@/components/shared/ArabicField';
 import TranslationProvider from '@/components/shared/TranslationProvider';
 import TranslationToolbar from '@/components/shared/TranslationToolbar';
 import { getErrorMessage } from '@/lib/api-client';
-import { listPresentations, updatePresentation } from '@/lib/services/presentations';
+import { listPresentations, updatePresentation, createPresentation } from '@/lib/services/presentations';
 import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
 import { useUpload } from '@/hooks/useMeta';
 import type {
@@ -337,6 +337,42 @@ function applyFallbacksFor(key: string, p: Presentation): Presentation {
   return p;
 }
 
+function buildDefaultPresentation(key: string): Presentation {
+  const base: Presentation = {
+    id: '',
+    key,
+    title: '',
+    titleAr: '',
+    description: '',
+    descriptionAr: '',
+    badge: '',
+    heroImage: '',
+    published: true,
+    topics: [...SHORTS_DEFAULT_TOPICS],
+    contributors: [...SHORTS_DEFAULT_CONTRIBUTORS],
+    faqs: [...SHORTS_DEFAULT_FAQS],
+    shortsCta: { ...DEFAULT_SHORTS_CTA },
+    sectionVisibility: { ...DEFAULT_SECTION_VISIBILITY },
+    initiativesTopics: [...INITIATIVES_DEFAULT_TOPICS],
+    initiativesContributors: [...INITIATIVES_DEFAULT_CONTRIBUTORS],
+    initiativesFaqs: [...INITIATIVES_DEFAULT_FAQS],
+    initiativesSectionVisibility: { ...DEFAULT_INITIATIVES_SECTION_VISIBILITY },
+    consultationTopics: [...CONSULTATION_DEFAULT_TOPICS],
+    consultationContributors: [...CONSULTATION_DEFAULT_CONTRIBUTORS],
+    consultationFaqs: [...CONSULTATION_DEFAULT_FAQS],
+    consultationSectionVisibility: { ...DEFAULT_CONSULTATION_SECTION_VISIBILITY },
+    emiratesTopics: [...EMIRATES_DEFAULT_TOPICS],
+    emiratesContributors: [...EMIRATES_DEFAULT_CONTRIBUTORS],
+    emiratesFaqs: [...EMIRATES_DEFAULT_FAQS],
+    emiratesSectionVisibility: { ...DEFAULT_EMIRATES_SECTION_VISIBILITY },
+    newsTopics: [...NEWS_DEFAULT_TOPICS],
+    newsContributors: [...NEWS_DEFAULT_CONTRIBUTORS],
+    newsFaqs: [...NEWS_DEFAULT_FAQS],
+    newsSectionVisibility: { ...DEFAULT_NEWS_SECTION_VISIBILITY },
+  };
+  return applyFallbacksFor(key, base);
+}
+
 /* ── Collapsible section wrapper ──────────────────────────────────────────── */
 
 interface CollapsibleSectionProps {
@@ -525,7 +561,7 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
       .then((list) => {
         if (!mounted) return;
         const raw = list.find((p) => p.key === presentationKey) ?? null;
-        const found = raw ? applyFallbacksFor(presentationKey, raw) : null;
+        const found = raw ? applyFallbacksFor(presentationKey, raw) : buildDefaultPresentation(presentationKey);
         setMachineFlags({
           titleAr: getIsMachineFlag(found ?? {}, 'titleAr'),
           descriptionAr: getIsMachineFlag(found ?? {}, 'descriptionAr'),
@@ -662,35 +698,40 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
   const setNewsContributors = (newsContributors: string[])       => setField({ newsContributors });
   const setNewsFaqs         = (newsFaqs: PresentationFaq[])      => setField({ newsFaqs });
 
+  const buildPayload = (d: Presentation) => ({
+    title: d.title, titleAr: d.titleAr,
+    description: d.description, descriptionAr: d.descriptionAr,
+    badge: d.badge, heroImage: d.heroImage,
+    published: d.published,
+    topics: d.topics, contributors: d.contributors, faqs: d.faqs,
+    sectionVisibility: { ...d.sectionVisibility, hero: true },
+    shortsCta: d.shortsCta,
+    initiativesTopics: d.initiativesTopics,
+    initiativesContributors: d.initiativesContributors,
+    initiativesFaqs: d.initiativesFaqs,
+    initiativesSectionVisibility: d.initiativesSectionVisibility,
+    consultationTopics: d.consultationTopics,
+    consultationContributors: d.consultationContributors,
+    consultationFaqs: d.consultationFaqs,
+    consultationSectionVisibility: d.consultationSectionVisibility,
+    emiratesTopics: d.emiratesTopics,
+    emiratesContributors: d.emiratesContributors,
+    emiratesFaqs: d.emiratesFaqs,
+    emiratesSectionVisibility: d.emiratesSectionVisibility,
+    newsTopics: d.newsTopics,
+    newsContributors: d.newsContributors,
+    newsFaqs: d.newsFaqs,
+    newsSectionVisibility: d.newsSectionVisibility,
+  });
+
   const handleSave = async () => {
     if (!data) return;
     setSaving(true); setSaved(false); setError('');
     try {
-      const updated = await updatePresentation(data.id, {
-        title: data.title, titleAr: data.titleAr,
-        description: data.description, descriptionAr: data.descriptionAr,
-        badge: data.badge, heroImage: data.heroImage,
-        published: data.published,
-        topics: data.topics, contributors: data.contributors, faqs: data.faqs,
-        sectionVisibility: { ...data.sectionVisibility, hero: true },
-        shortsCta: data.shortsCta,
-        initiativesTopics: data.initiativesTopics,
-        initiativesContributors: data.initiativesContributors,
-        initiativesFaqs: data.initiativesFaqs,
-        initiativesSectionVisibility: data.initiativesSectionVisibility,
-        consultationTopics: data.consultationTopics,
-        consultationContributors: data.consultationContributors,
-        consultationFaqs: data.consultationFaqs,
-        consultationSectionVisibility: data.consultationSectionVisibility,
-        emiratesTopics: data.emiratesTopics,
-        emiratesContributors: data.emiratesContributors,
-        emiratesFaqs: data.emiratesFaqs,
-        emiratesSectionVisibility: data.emiratesSectionVisibility,
-        newsTopics: data.newsTopics,
-        newsContributors: data.newsContributors,
-        newsFaqs: data.newsFaqs,
-        newsSectionVisibility: data.newsSectionVisibility,
-      });
+      const payload = buildPayload(data);
+      const updated = data.id
+        ? await updatePresentation(data.id, payload)
+        : await createPresentation({ key: presentationKey, ...payload });
       const patched = applyFallbacksFor(presentationKey, updated);
       setData(patched);
       setSaved(true);
@@ -711,37 +752,11 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
     setSaved(false);
     setError('');
     try {
-      const updated = await updatePresentation(data.id, {
-        title: nextData.title, titleAr: nextData.titleAr,
-        description: nextData.description, descriptionAr: nextData.descriptionAr,
-        badge: nextData.badge, heroImage: nextData.heroImage,
-        published: nextData.published,
-        topics: nextData.topics, contributors: nextData.contributors, faqs: nextData.faqs,
-        sectionVisibility: { ...nextData.sectionVisibility, hero: true },
-        shortsCta: nextData.shortsCta,
-        initiativesTopics: nextData.initiativesTopics,
-        initiativesContributors: nextData.initiativesContributors,
-        initiativesFaqs: nextData.initiativesFaqs,
-        initiativesSectionVisibility: nextData.initiativesSectionVisibility,
-        consultationTopics: nextData.consultationTopics,
-        consultationContributors: nextData.consultationContributors,
-        consultationFaqs: nextData.consultationFaqs,
-        consultationSectionVisibility: nextData.consultationSectionVisibility,
-        emiratesTopics: nextData.emiratesTopics,
-        emiratesContributors: nextData.emiratesContributors,
-        emiratesFaqs: nextData.emiratesFaqs,
-        emiratesSectionVisibility: nextData.emiratesSectionVisibility,
-        newsTopics: nextData.newsTopics,
-        newsContributors: nextData.newsContributors,
-        newsFaqs: nextData.newsFaqs,
-        newsSectionVisibility: nextData.newsSectionVisibility,
-      });
-      let patched = updated;
-      if (presentationKey === 'shorts') patched = applyShortsFallbacks(patched);
-      if (presentationKey === 'initiatives') patched = applyInitiativesFallbacks(patched);
-      if (presentationKey === 'consultation') patched = applyConsultationFallbacks(patched);
-      if (presentationKey === 'emirates') patched = applyEmiratesFallbacks(patched);
-      if (presentationKey === 'news') patched = applyNewsFallbacks(patched);
+      const payload = buildPayload(nextData);
+      const updated = nextData.id
+        ? await updatePresentation(nextData.id, payload)
+        : await createPresentation({ key: presentationKey, ...payload });
+      let patched = applyFallbacksFor(presentationKey, updated);
       setData(patched);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
