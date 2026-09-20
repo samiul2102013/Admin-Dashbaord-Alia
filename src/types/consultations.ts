@@ -35,8 +35,11 @@ export interface Consultation {
   description?: string;
   descriptionAr?: string;
   objectives?: string[];
+  objectivesAr?: string[];
   whatYouWillLearn?: string[];
+  whatYouWillLearnAr?: string[];
   whoShouldAttend?: string[];
+  whoShouldAttendAr?: string[];
   schedule?: Record<string, unknown>;
   bookingNotice?: string;
   bookingNoticeAr?: string;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState, useEffect, type ChangeEvent } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
@@ -46,15 +46,87 @@ const initialSections: Record<ConsultationSectionKey, boolean> = {
   display: false,
 };
 
-function splitLines(value: string) {
-  return value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+interface ItemListEditorProps {
+  label: string;
+  itemsEn: string[];
+  itemsAr: string[];
+  onChange: (nextEn: string[], nextAr: string[]) => void;
+  enPlaceholder?: string;
+  arPlaceholder?: string;
+  addLabel?: string;
 }
 
-function joinLines(values?: string[]) {
-  return values?.join('\n') ?? '';
+function ItemListEditor({
+  label,
+  itemsEn,
+  itemsAr,
+  onChange,
+  enPlaceholder,
+  arPlaceholder,
+  addLabel = 'Add item',
+}: ItemListEditorProps) {
+  const rowCount = Math.max(itemsEn.length, itemsAr.length);
+
+  const setAt = (index: number, patch: { en?: string; ar?: string }) => {
+    const nextEn = [...itemsEn];
+    const nextAr = [...itemsAr];
+    if (patch.en !== undefined) nextEn[index] = patch.en;
+    if (patch.ar !== undefined) nextAr[index] = patch.ar;
+    onChange(nextEn, nextAr);
+  };
+
+  const add = () => onChange([...itemsEn, ''], [...itemsAr, '']);
+
+  const remove = (index: number) =>
+    onChange(
+      itemsEn.filter((_, i) => i !== index),
+      itemsAr.filter((_, i) => i !== index),
+    );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <span className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
+        {label}
+      </span>
+      {Array.from({ length: rowCount }).map((_, i) => (
+        <div key={i} className="flex flex-col md:flex-row items-start gap-3">
+          <div className="flex flex-1 flex-col gap-3 md:flex-row">
+            <div className="flex-1">
+              <Input
+                label={`Item ${i + 1}`}
+                placeholder={enPlaceholder}
+                value={itemsEn[i] ?? ''}
+                onChange={(e) => setAt(i, { en: e.target.value })}
+              />
+            </div>
+            <div className="flex-1">
+              <ArabicField
+                label={`Item ${i + 1} (Arabic)`}
+                statusOnly
+                multiline
+                rows={2}
+                placeholder={arPlaceholder}
+                englishValue={itemsEn[i] ?? ''}
+                value={itemsAr[i] ?? ''}
+                onChange={(v) => setAt(i, { ar: v })}
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            className="mt-[26px] w-10 h-10 shrink-0 rounded-full bg-[#FDECEC] flex items-center justify-center hover:bg-[#FAD5D5] transition-colors cursor-pointer"
+            aria-label={`Remove ${label} item`}
+          >
+            <Trash2 size={16} className="text-danger" />
+          </button>
+        </div>
+      ))}
+      <Button variant="ghost" size="sm" onClick={add}>
+        <Plus size={16} /> {addLabel}
+      </Button>
+    </div>
+  );
 }
 
 function FileUpload({
@@ -136,9 +208,12 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
   const [gallery, setGallery] = useState('');
   const [description, setDescription] = useState('');
   const [descriptionAr, setDescriptionAr] = useState('');
-  const [objectives, setObjectives] = useState('');
-  const [whatYouWillLearn, setWhatYouWillLearn] = useState('');
-  const [whoShouldAttend, setWhoShouldAttend] = useState('');
+  const [objectives, setObjectives] = useState<string[]>([]);
+  const [objectivesAr, setObjectivesAr] = useState<string[]>([]);
+  const [whatYouWillLearn, setWhatYouWillLearn] = useState<string[]>([]);
+  const [whatYouWillLearnAr, setWhatYouWillLearnAr] = useState<string[]>([]);
+  const [whoShouldAttend, setWhoShouldAttend] = useState<string[]>([]);
+  const [whoShouldAttendAr, setWhoShouldAttendAr] = useState<string[]>([]);
   const [schedule, setSchedule] = useState('');
   const [bookingNotice, setBookingNotice] = useState('');
   const [bookingNoticeAr, setBookingNoticeAr] = useState('');
@@ -188,9 +263,12 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
       setGallery(Array.isArray(consultation.gallery) && consultation.gallery[0] ? consultation.gallery[0] : '');
       setDescription(consultation.description || '');
       setDescriptionAr(consultation.descriptionAr || '');
-      setObjectives(joinLines(consultation.objectives));
-      setWhatYouWillLearn(joinLines(consultation.whatYouWillLearn));
-      setWhoShouldAttend(joinLines(consultation.whoShouldAttend));
+      setObjectives(consultation.objectives ?? []);
+      setObjectivesAr(consultation.objectivesAr ?? []);
+      setWhatYouWillLearn(consultation.whatYouWillLearn ?? []);
+      setWhatYouWillLearnAr(consultation.whatYouWillLearnAr ?? []);
+      setWhoShouldAttend(consultation.whoShouldAttend ?? []);
+      setWhoShouldAttendAr(consultation.whoShouldAttendAr ?? []);
       setSchedule(typeof consultation.schedule === 'string' ? consultation.schedule : '');
       setBookingNotice(consultation.bookingNotice || '');
       setBookingNoticeAr(consultation.bookingNoticeAr || '');
@@ -241,9 +319,12 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
       setGallery('');
       setDescription('');
       setDescriptionAr('');
-      setObjectives('');
-      setWhatYouWillLearn('');
-      setWhoShouldAttend('');
+      setObjectives([]);
+      setObjectivesAr([]);
+      setWhatYouWillLearn([]);
+      setWhatYouWillLearnAr([]);
+      setWhoShouldAttend([]);
+      setWhoShouldAttendAr([]);
       setSchedule('');
       setBookingNotice('');
       setBookingNoticeAr('');
@@ -326,9 +407,12 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
       gallery: galleryValue,
       description: description.trim() || undefined,
       descriptionAr: descriptionAr.trim() || undefined,
-      objectives: splitLines(objectives),
-      whatYouWillLearn: splitLines(whatYouWillLearn),
-      whoShouldAttend: splitLines(whoShouldAttend),
+      objectives,
+      objectivesAr,
+      whatYouWillLearn,
+      whatYouWillLearnAr,
+      whoShouldAttend,
+      whoShouldAttendAr,
       bookingNotice: bookingNotice.trim() || undefined,
       bookingNoticeAr: bookingNoticeAr.trim() || undefined,
       showDoctor,
@@ -360,6 +444,9 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
     setCounselorBioAr(fresh.counselorBioAr || '');
     setDescriptionAr(fresh.descriptionAr || '');
     setBookingNoticeAr(fresh.bookingNoticeAr || '');
+    setObjectivesAr(fresh.objectivesAr ?? []);
+    setWhatYouWillLearnAr(fresh.whatYouWillLearnAr ?? []);
+    setWhoShouldAttendAr(fresh.whoShouldAttendAr ?? []);
     setMachineFlags({
       sessionTitleAr: getIsMachineFlag(fresh, 'sessionTitleAr'),
       counselorAr: getIsMachineFlag(fresh, 'counselorAr'),
@@ -385,6 +472,9 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
     getTranslationState(counselorBio, counselorBioAr, machineFlags.counselorBioAr, failedFields.has('counselorBioAr')),
     getTranslationState(description, descriptionAr, machineFlags.descriptionAr, failedFields.has('descriptionAr')),
     getTranslationState(bookingNotice, bookingNoticeAr, machineFlags.bookingNoticeAr, failedFields.has('bookingNoticeAr')),
+    getTranslationState(objectives.join('\n'), objectivesAr.join('\n'), undefined, false),
+    getTranslationState(whatYouWillLearn.join('\n'), whatYouWillLearnAr.join('\n'), undefined, false),
+    getTranslationState(whoShouldAttend.join('\n'), whoShouldAttendAr.join('\n'), undefined, false),
   ];
 
   const footer = (
@@ -627,17 +717,44 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
             />
           </div>
 
-          <div>
-            <Textarea label="Objectives" placeholder="One objective per line" rows={4} value={objectives} onChange={(e) => setObjectives(e.target.value)} />
-          </div>
+          <ItemListEditor
+            label="Objectives"
+            itemsEn={objectives}
+            itemsAr={objectivesAr}
+            onChange={(en, ar) => {
+              setObjectives(en);
+              setObjectivesAr(ar);
+            }}
+            enPlaceholder="Enter an objective"
+            arPlaceholder="أدخل الهدف"
+            addLabel="Add objective"
+          />
 
-          <div>
-            <Textarea label="What You Will Learn" placeholder="One item per line" rows={4} value={whatYouWillLearn} onChange={(e) => setWhatYouWillLearn(e.target.value)} />
-          </div>
+          <ItemListEditor
+            label="What You Will Learn"
+            itemsEn={whatYouWillLearn}
+            itemsAr={whatYouWillLearnAr}
+            onChange={(en, ar) => {
+              setWhatYouWillLearn(en);
+              setWhatYouWillLearnAr(ar);
+            }}
+            enPlaceholder="Enter a learning outcome"
+            arPlaceholder="أدخل مخرجات التعلم"
+            addLabel="Add item"
+          />
 
-          <div>
-            <Textarea label="Who Should Attend" placeholder="One item per line" rows={4} value={whoShouldAttend} onChange={(e) => setWhoShouldAttend(e.target.value)} />
-          </div>
+          <ItemListEditor
+            label="Who Should Attend"
+            itemsEn={whoShouldAttend}
+            itemsAr={whoShouldAttendAr}
+            onChange={(en, ar) => {
+              setWhoShouldAttend(en);
+              setWhoShouldAttendAr(ar);
+            }}
+            enPlaceholder="Enter an audience"
+            arPlaceholder="أدخل الفئة المستهدفة"
+            addLabel="Add audience"
+          />
 
           <div className="flex gap-8">
             <div className="flex-1">
