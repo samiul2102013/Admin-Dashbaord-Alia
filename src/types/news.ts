@@ -1,3 +1,10 @@
+export interface NewsResource {
+  title?: string;
+  titleAr?: string;
+  url?: string;
+  type?: string;
+}
+
 export interface NewsArticle {
   id: string;
   articleTitle: string;
@@ -16,10 +23,12 @@ export interface NewsArticle {
   authorAr?: string;
   editorialTeam?: string;
   organization?: string;
+  organizationAr?: string;
   moc?: string;
   city?: string;
+  cityAr?: string;
   emirate?: string;
-  resources?: unknown[];
+  resources?: NewsResource[];
   shareUrl?: string;
   showArticleInfo?: boolean;
   showRelatedResources?: boolean;

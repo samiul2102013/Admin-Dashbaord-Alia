@@ -23,7 +23,7 @@ import { getErrorMessage } from '@/lib/api-client';
 import CollapsibleSection from '@/components/shared/CollapsibleSection';
 import { getNewsArticle } from '@/lib/services/news';
 import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
-import type { NewsArticle } from '@/types/news';
+import type { NewsArticle, NewsResource } from '@/types/news';
 
 interface NewsModalProps {
   isOpen: boolean;
@@ -31,13 +31,7 @@ interface NewsModalProps {
   article?: NewsArticle | null;
 }
 
-interface NewsResource {
-  title?: string;
-  url?: string;
-  type?: string;
-}
-
-const emptyResources: NewsResource[] = [{ title: '', url: '', type: '' }];
+const emptyResources: NewsResource[] = [{ title: '', titleAr: '', url: '', type: '' }];
 
 type NewsSectionKey = 'media' | 'content' | 'resources' | 'display';
 
@@ -79,8 +73,10 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
   const [authorAr, setAuthorAr] = useState('');
   const [editorialTeam, setEditorialTeam] = useState('');
   const [organization, setOrganization] = useState('');
+  const [organizationAr, setOrganizationAr] = useState('');
   const [moc, setMoc] = useState('');
   const [city, setCity] = useState('');
+  const [cityAr, setCityAr] = useState('');
   const [emirate, setEmirate] = useState('');
   const [publishedDate, setPublishedDate] = useState('');
   const [updatedDate, setUpdatedDate] = useState('');
@@ -116,8 +112,10 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
       setAuthorAr(article.authorAr || '');
       setEditorialTeam(article.editorialTeam || '');
       setOrganization(article.organization || '');
+      setOrganizationAr(article.organizationAr || '');
       setMoc(article.moc || '');
       setCity(article.city || '');
+      setCityAr(article.cityAr || '');
       setEmirate(article.emirate || '');
       setPublishedDate(article.publishedDate || '');
       setUpdatedDate(article.updatedDate || '');
@@ -125,6 +123,8 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
         articleTitleAr: getIsMachineFlag(article, 'articleTitleAr'),
         contentAr: getIsMachineFlag(article, 'contentAr'),
         authorAr: getIsMachineFlag(article, 'authorAr'),
+        organizationAr: getIsMachineFlag(article, 'organizationAr'),
+        cityAr: getIsMachineFlag(article, 'cityAr'),
       });
       setFailedFields(new Set());
       setResources(article.resources?.length ? article.resources as NewsResource[] : emptyResources);
@@ -149,8 +149,10 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
       setAuthorAr('');
       setEditorialTeam('');
       setOrganization('');
+      setOrganizationAr('');
       setMoc('');
       setCity('');
+      setCityAr('');
       setEmirate('');
       setPublishedDate('');
       setUpdatedDate('');
@@ -203,12 +205,14 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
       authorAr,
       editorialTeam,
       organization,
+      organizationAr,
       moc,
       city,
+      cityAr,
       emirate,
       publishedDate: publishedDate || null,
       updatedDate: updatedDate || null,
-      resources: resources.filter((r) => r.title || r.url || r.type),
+      resources: resources.filter((r) => r.title || r.titleAr || r.url || r.type),
       shareUrl,
       ...Object.fromEntries(TOGGLE_KEYS.map((k) => [k, Boolean(toggles[k])])),
       status,
@@ -236,15 +240,21 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
     setArticleTitleAr(fresh.articleTitleAr || '');
     setContentAr(fresh.contentAr || '');
     setAuthorAr(fresh.authorAr || '');
+    setOrganizationAr(fresh.organizationAr || '');
+    setCityAr(fresh.cityAr || '');
     setMachineFlags({
       articleTitleAr: getIsMachineFlag(fresh, 'articleTitleAr'),
       contentAr: getIsMachineFlag(fresh, 'contentAr'),
       authorAr: getIsMachineFlag(fresh, 'authorAr'),
+      organizationAr: getIsMachineFlag(fresh, 'organizationAr'),
+      cityAr: getIsMachineFlag(fresh, 'cityAr'),
     });
     const failed = new Set<string>();
     if ((fresh.articleTitle || '').trim() && !(fresh.articleTitleAr || '').trim()) failed.add('articleTitleAr');
     if ((fresh.content || '').trim() && !(fresh.contentAr || '').trim()) failed.add('contentAr');
     if ((fresh.author || '').trim() && !(fresh.authorAr || '').trim()) failed.add('authorAr');
+    if ((fresh.organization || '').trim() && !(fresh.organizationAr || '').trim()) failed.add('organizationAr');
+    if ((fresh.city || '').trim() && !(fresh.cityAr || '').trim()) failed.add('cityAr');
     setFailedFields(failed);
   }, [article]);
 
@@ -252,6 +262,8 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
     getTranslationState(articleTitle, articleTitleAr, machineFlags.articleTitleAr, failedFields.has('articleTitleAr')),
     getTranslationState(content, contentAr, machineFlags.contentAr, failedFields.has('contentAr')),
     getTranslationState(author, authorAr, machineFlags.authorAr, failedFields.has('authorAr')),
+    getTranslationState(organization, organizationAr, machineFlags.organizationAr, failedFields.has('organizationAr')),
+    getTranslationState(city, cityAr, machineFlags.cityAr, failedFields.has('cityAr')),
   ];
 
   const footer = (
@@ -358,16 +370,41 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
               <Input label="Editorial Team" placeholder="Editorial team name" value={editorialTeam} onChange={(e) => setEditorialTeam(e.target.value)} />
             </div>
             <div className="flex-1">
-              <Input label="Organization" placeholder="Organization name" value={organization} onChange={(e) => setOrganization(e.target.value)} />
+              <Input label="MoC" placeholder="Ministry of Culture" value={moc} onChange={(e) => setMoc(e.target.value)} />
             </div>
           </div>
 
           <div className="flex gap-8">
             <div className="flex-1">
-              <Input label="MoC" placeholder="Ministry of Culture" value={moc} onChange={(e) => setMoc(e.target.value)} />
+              <Input label="Organization" placeholder="Organization name" value={organization} onChange={(e) => setOrganization(e.target.value)} />
             </div>
             <div className="flex-1">
+              <ArabicField
+                label="Organization (Arabic)"
+                placeholder="اسم المؤسسة"
+                englishValue={organization}
+                value={organizationAr}
+                onChange={setOrganizationAr}
+                isMachine={machineFlags.organizationAr}
+                failed={failedFields.has('organizationAr')}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
               <Input label="City" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <ArabicField
+                label="City (Arabic)"
+                placeholder="المدينة"
+                englishValue={city}
+                value={cityAr}
+                onChange={setCityAr}
+                isMachine={machineFlags.cityAr}
+                failed={failedFields.has('cityAr')}
+              />
             </div>
           </div>
 
@@ -429,34 +466,44 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
 
         <CollapsibleSection
           title="Resources & References"
-          hint={`${resources.filter((r) => r.title || r.url || r.type).length} resources`}
+          hint={`${resources.filter((r) => r.title || r.titleAr || r.url || r.type).length} resources`}
           isOpen={openSections.resources}
           onToggle={() => toggleSection('resources')}
         >
           <div className="flex flex-col gap-3">
             {resources.map((resource, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <Input
-                  placeholder="Title"
-                  value={resource.title || ''}
-                  onChange={(e) => setResources(updateResource(i, 'title', e.target.value))}
+              <div key={i} className="flex flex-col gap-3 rounded-lg border border-secondary/30 p-3">
+                <div className="flex items-center gap-3">
+                  <Input
+                    placeholder="Title"
+                    value={resource.title || ''}
+                    onChange={(e) => setResources(updateResource(i, 'title', e.target.value))}
+                  />
+                  <Input
+                    placeholder="URL"
+                    value={resource.url || ''}
+                    onChange={(e) => setResources(updateResource(i, 'url', e.target.value))}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setResources(resources.filter((_, idx) => idx !== i))}
+                    className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-danger hover:bg-[#FDECEA] transition-colors cursor-pointer"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                <ArabicField
+                  label="Title (Arabic)"
+                  statusOnly
+                  placeholder="عنوان المورد"
+                  englishValue={resource.title || ''}
+                  value={resource.titleAr || ''}
+                  onChange={(v) => setResources(updateResource(i, 'titleAr', v))}
                 />
-                <Input
-                  placeholder="URL"
-                  value={resource.url || ''}
-                  onChange={(e) => setResources(updateResource(i, 'url', e.target.value))}
-                />
-                <button
-                  type="button"
-                  onClick={() => setResources(resources.filter((_, idx) => idx !== i))}
-                  className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-danger hover:bg-[#FDECEA] transition-colors cursor-pointer"
-                >
-                  <Trash2 size={16} />
-                </button>
               </div>
             ))}
             <div>
-              <Button variant="ghost" size="sm" onClick={() => setResources([...resources, { title: '', url: '', type: '' }])}>
+              <Button variant="ghost" size="sm" onClick={() => setResources([...resources, { title: '', titleAr: '', url: '', type: '' }])}>
                 <Plus size={16} />
                 Add Resource
               </Button>
