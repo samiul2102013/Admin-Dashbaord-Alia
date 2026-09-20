@@ -1,9 +1,13 @@
 'use client';
 
 import { useCallback, useState, useEffect, type ChangeEvent } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Info, Loader2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import CollapsibleSection from '@/components/shared/CollapsibleSection';
+import VisibilityGroups, {
+  countHidden,
+  type VisibilityGroup,
+} from '@/components/shared/VisibilityGroups';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Select from '@/components/shared/Select';
@@ -33,6 +37,17 @@ const initialSections: Record<EmiratesSectionKey, boolean> = {
   media: false,
   display: false,
 };
+
+const EMIRATES_VISIBILITY_GROUPS: VisibilityGroup[] = [
+  {
+    title: 'Status Badge',
+    description: 'the status label on the emirate page',
+    icon: Info,
+    items: [
+      { key: 'showStatus', label: 'Status Badge', description: 'Shows the status badge/label on the public emirate page.' },
+    ],
+  },
+];
 
 function FileUpload({
   value,
@@ -246,6 +261,9 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
     getTranslationState(centerCount, centerCountAr, machineFlags.centerCountAr, failedFields.has('centerCountAr')),
   ];
 
+  const emiratesToggles: Record<string, boolean> = { showStatus };
+  const hiddenCount = countHidden(EMIRATES_VISIBILITY_GROUPS, emiratesToggles);
+
   const footer = (
     <div className="flex justify-center gap-4">
       <Button variant="secondary" onClick={onClose} disabled={isPending}>
@@ -430,30 +448,18 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
 
         <CollapsibleSection
           title="Display Options"
-          hint="Toggle visibility"
+          hint={hiddenCount > 0 ? `${hiddenCount} of ${EMIRATES_VISIBILITY_GROUPS.flatMap((g) => g.items).length} sections hidden` : 'All sections visible'}
           isOpen={openSections.display}
           onToggle={() => toggleSection('display')}
         >
-          <div className="flex items-center justify-between rounded-[10px] border border-secondary/40 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold font-[family-name:var(--font-poppins)] text-text-primary">
-                Show Status
-              </p>
-              <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
-                Display status badge on the public emirate page.
-              </p>
-            </div>
-            <label className="relative inline-flex cursor-pointer items-center">
-              <input
-                type="checkbox"
-                checked={showStatus}
-                onChange={(e) => setShowStatus(e.target.checked)}
-                className="peer sr-only"
-              />
-              <span className="h-6 w-11 rounded-full bg-secondary/30 transition-colors peer-checked:bg-primary" />
-              <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
-            </label>
-          </div>
+          <VisibilityGroups
+            groups={EMIRATES_VISIBILITY_GROUPS}
+            toggles={emiratesToggles}
+            onChange={(key, checked) => {
+              if (key === 'showStatus') setShowStatus(checked);
+            }}
+            intro="Each group below controls one part of the public emirate page. Hiding a section removes it for visitors — the emirate and its content are not affected."
+          />
 
           <StatusField value={status} onChange={setStatus} />
         </CollapsibleSection>

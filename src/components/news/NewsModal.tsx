@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Info, LayoutGrid, Link2, Loader2, Plus, Share2, Trash2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
@@ -21,6 +21,11 @@ import { useCreateNewsArticle, useUpdateNewsArticle } from '@/hooks/useNewsArtic
 import { useUpload } from '@/hooks/useMeta';
 import { getErrorMessage } from '@/lib/api-client';
 import CollapsibleSection from '@/components/shared/CollapsibleSection';
+import VisibilityGroups, {
+  countHidden,
+  visibilityKeys,
+  type VisibilityGroup,
+} from '@/components/shared/VisibilityGroups';
 import { getNewsArticle } from '@/lib/services/news';
 import { getIsMachineFlag, getTranslationState, type TranslationState } from '@/lib/translation';
 import type { NewsArticle, NewsResource } from '@/types/news';
@@ -42,19 +47,43 @@ const initialSections: Record<NewsSectionKey, boolean> = {
   display: false,
 };
 
-const TOGGLE_KEYS = [
-  'showArticleInfo',
-  'showRelatedResources',
-  'showShare',
-  'showRelatedStories',
-] as const;
+// Groups mirror the order sections appear on the public article page.
+const NEWS_VISIBILITY_GROUPS: VisibilityGroup[] = [
+  {
+    title: 'Article Info',
+    description: 'the sidebar facts card',
+    icon: Info,
+    items: [
+      { key: 'showArticleInfo', label: 'Article Info Card', description: 'Shows the card with author, organization, city and published date.' },
+    ],
+  },
+  {
+    title: 'Related Resources',
+    description: 'the links card',
+    icon: Link2,
+    items: [
+      { key: 'showRelatedResources', label: 'Resources List', description: 'Shows the "Related Resources" card with its external links.' },
+    ],
+  },
+  {
+    title: 'Share',
+    description: 'the social sharing action',
+    icon: Share2,
+    items: [
+      { key: 'showShare', label: 'Share Button', description: 'Shows the share action for the article.' },
+    ],
+  },
+  {
+    title: 'Related Stories',
+    description: 'other articles at the bottom',
+    icon: LayoutGrid,
+    items: [
+      { key: 'showRelatedStories', label: 'Related Stories List', description: 'Shows the list of other articles from the same category.' },
+    ],
+  },
+];
 
-const TOGGLE_LABELS: Record<(typeof TOGGLE_KEYS)[number], string> = {
-  showArticleInfo: 'Show Article Info',
-  showRelatedResources: 'Show Related Resources',
-  showShare: 'Show Share',
-  showRelatedStories: 'Show Related Stories',
-};
+const TOGGLE_KEYS: string[] = visibilityKeys(NEWS_VISIBILITY_GROUPS);
 
 export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) {
   const createNewsArticle = useCreateNewsArticle();
@@ -265,6 +294,8 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
     getTranslationState(organization, organizationAr, machineFlags.organizationAr, failedFields.has('organizationAr')),
     getTranslationState(city, cityAr, machineFlags.cityAr, failedFields.has('cityAr')),
   ];
+
+  const hiddenCount = countHidden(NEWS_VISIBILITY_GROUPS, toggles);
 
   const footer = (
     <div className="flex justify-center gap-4">
@@ -513,25 +544,16 @@ export default function NewsModal({ isOpen, onClose, article }: NewsModalProps) 
 
         <CollapsibleSection
           title="Display Options"
-          hint="Toggle visibility"
+          hint={hiddenCount > 0 ? `${hiddenCount} of ${TOGGLE_KEYS.length} sections hidden` : 'All sections visible'}
           isOpen={openSections.display}
           onToggle={() => toggleSection('display')}
         >
-          <div className="grid grid-cols-2 gap-4">
-            {TOGGLE_KEYS.map((key) => (
-              <label key={key} className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(toggles[key])}
-                  onChange={(e) => setToggles({ ...toggles, [key]: e.target.checked })}
-                  className="w-4 h-4 accent-[#781E36]"
-                />
-                <span className="text-sm font-medium text-text-primary font-[family-name:var(--font-poppins)]">
-                  {TOGGLE_LABELS[key]}
-                </span>
-              </label>
-            ))}
-          </div>
+          <VisibilityGroups
+            groups={NEWS_VISIBILITY_GROUPS}
+            toggles={toggles}
+            onChange={(key, checked) => setToggles({ ...toggles, [key]: checked })}
+            intro="Each group below controls one section of the public article page, in the order it appears. Hiding a section removes it for visitors — the article and its content are not affected."
+          />
         </CollapsibleSection>
       </div>
     </Modal>

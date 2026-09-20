@@ -1,13 +1,26 @@
 'use client';
 
 import { useCallback, useState, useEffect, type ChangeEvent } from 'react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import {
+  BookOpen,
+  Calendar,
+  CalendarCheck,
+  Image as ImageIcon,
+  Loader2,
+  Plus,
+  Trash2,
+  User,
+} from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
 import Button from '@/components/shared/Button';
 import Select from '@/components/shared/Select';
 import CollapsibleSection from '@/components/shared/CollapsibleSection';
+import VisibilityGroups, {
+  countHidden,
+  type VisibilityGroup,
+} from '@/components/shared/VisibilityGroups';
 import StatusField from '@/components/shared/StatusField';
 import ArabicField from '@/components/shared/ArabicField';
 import TranslationProvider from '@/components/shared/TranslationProvider';
@@ -45,6 +58,50 @@ const initialSections: Record<ConsultationSectionKey, boolean> = {
   content: false,
   display: false,
 };
+
+// Groups mirror the order sections appear on the public session detail page.
+const CONSULTATION_VISIBILITY_GROUPS: VisibilityGroup[] = [
+  {
+    title: 'Doctor / Counselor',
+    description: 'the counselor card',
+    icon: User,
+    items: [
+      { key: 'showDoctor', label: 'Counselor Card', description: 'Shows the counselor name, photo, title and bio.' },
+    ],
+  },
+  {
+    title: 'Learn More',
+    description: 'the learn-more block',
+    icon: BookOpen,
+    items: [
+      { key: 'showLearnMore', label: 'Learn More Section', description: 'Shows the additional learn-more content for the session.' },
+    ],
+  },
+  {
+    title: 'Gallery',
+    description: 'the session images',
+    icon: ImageIcon,
+    items: [
+      { key: 'showGallery', label: 'Image Gallery', description: 'Shows the large image and thumbnail gallery.' },
+    ],
+  },
+  {
+    title: 'Schedule',
+    description: 'date, time & time zone',
+    icon: Calendar,
+    items: [
+      { key: 'showSchedule', label: 'Schedule Section', description: 'Shows the session date, start/end time and time zone.' },
+    ],
+  },
+  {
+    title: 'Booking',
+    description: 'the booking call-to-action',
+    icon: CalendarCheck,
+    items: [
+      { key: 'showBooking', label: 'Booking CTA', description: 'Shows the booking button. Use "Bookable" in Content to block actual bookings.' },
+    ],
+  },
+];
 
 interface ItemListEditorProps {
   label: string;
@@ -477,6 +534,26 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
     getTranslationState(whoShouldAttend.join('\n'), whoShouldAttendAr.join('\n'), undefined, false),
   ];
 
+  const consultationToggles: Record<string, boolean> = {
+    showDoctor,
+    showLearnMore,
+    showGallery,
+    showSchedule,
+    showBooking,
+  };
+
+  const setConsultationToggle = (key: string, checked: boolean) => {
+    switch (key) {
+      case 'showDoctor': setShowDoctor(checked); break;
+      case 'showLearnMore': setShowLearnMore(checked); break;
+      case 'showGallery': setShowGallery(checked); break;
+      case 'showSchedule': setShowSchedule(checked); break;
+      case 'showBooking': setShowBooking(checked); break;
+    }
+  };
+
+  const hiddenCount = countHidden(CONSULTATION_VISIBILITY_GROUPS, consultationToggles);
+
   const footer = (
     <div className="flex justify-center gap-4">
       <Button variant="secondary" onClick={onClose} disabled={isPending}>Cancel</Button>
@@ -770,14 +847,18 @@ export default function ConsultationsModal({ isOpen, onClose, consultation }: Co
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title="Display Options" hint="Toggle visibility" isOpen={openSections.display} onToggle={() => toggleSection('display')}>
-          <div className="grid grid-cols-2 gap-3">
-            {toggleRow(showDoctor, setShowDoctor, 'Show Doctor')}
-            {toggleRow(showLearnMore, setShowLearnMore, 'Show Learn More')}
-            {toggleRow(showGallery, setShowGallery, 'Show Gallery')}
-            {toggleRow(showSchedule, setShowSchedule, 'Show Schedule')}
-            {toggleRow(showBooking, setShowBooking, 'Show Booking')}
-          </div>
+        <CollapsibleSection
+          title="Display Options"
+          hint={hiddenCount > 0 ? `${hiddenCount} of ${CONSULTATION_VISIBILITY_GROUPS.flatMap((g) => g.items).length} sections hidden` : 'All sections visible'}
+          isOpen={openSections.display}
+          onToggle={() => toggleSection('display')}
+        >
+          <VisibilityGroups
+            groups={CONSULTATION_VISIBILITY_GROUPS}
+            toggles={consultationToggles}
+            onChange={setConsultationToggle}
+            intro="Each group below controls one section of the public session page, in the order it appears. Hiding a section removes it for visitors — the session and its content are not affected."
+          />
 
           <div className="flex gap-8">
             <div className="flex-1">

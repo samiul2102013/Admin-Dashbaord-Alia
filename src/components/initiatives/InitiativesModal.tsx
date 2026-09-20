@@ -1,7 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import {
+  BadgeCheck,
+  CheckCircle2,
+  FileText,
+  Info,
+  LayoutGrid,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
@@ -9,6 +17,10 @@ import Select from '@/components/shared/Select';
 import Button from '@/components/shared/Button';
 import ChunkedUploader from '@/components/shared/ChunkedUploader';
 import CollapsibleSection from '@/components/shared/CollapsibleSection';
+import VisibilityGroups, {
+  countHidden,
+  type VisibilityGroup,
+} from '@/components/shared/VisibilityGroups';
 import StatusField from '@/components/shared/StatusField';
 import ArabicField from '@/components/shared/ArabicField';
 import TranslationProvider from '@/components/shared/TranslationProvider';
@@ -51,6 +63,51 @@ function emptySupportOffered(): Record<SupportOfferedKey, boolean> {
     pre_marital_preparation: false,
   };
 }
+
+// Groups mirror the order sections appear on the public initiative page.
+const INITIATIVE_VISIBILITY_GROUPS: VisibilityGroup[] = [
+  {
+    title: 'Listing & Promotion',
+    description: 'where the initiative appears',
+    icon: LayoutGrid,
+    items: [
+      { key: 'isFeatured', label: 'Featured Highlight', description: 'Show this initiative as the highlighted card on the home page.' },
+      { key: 'isListed', label: 'Show on Initiatives Listing', description: 'When off, this initiative only appears under its emirate.' },
+    ],
+  },
+  {
+    title: 'About',
+    description: 'description, purpose & objectives',
+    icon: Info,
+    items: [
+      { key: 'showAbout', label: 'About Section', description: 'Shows the description, purpose and objectives block.' },
+    ],
+  },
+  {
+    title: 'Support Offered',
+    description: 'the support types grid',
+    icon: CheckCircle2,
+    items: [
+      { key: 'showSupportOffered', label: 'Support Offered Section', description: 'Shows the financial / housing / educational support cards.' },
+    ],
+  },
+  {
+    title: 'Benefits',
+    description: 'the benefits list',
+    icon: BadgeCheck,
+    items: [
+      { key: 'showBenefits', label: 'Benefits Section', description: 'Shows the list of benefits for the initiative.' },
+    ],
+  },
+  {
+    title: 'Application Form',
+    description: 'contact details & form',
+    icon: FileText,
+    items: [
+      { key: 'showApplicationForm', label: 'Application Form', description: 'Shows the contact details and the application form.' },
+    ],
+  },
+];
 
 type InitiativeSectionKey = 'classification' | 'media' | 'about' | 'benefits' | 'display';
 
@@ -428,6 +485,28 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
     getTranslationState(contact.join('\n'), contactAr.join('\n'), undefined, false),
   ];
 
+  const initiativeToggles: Record<string, boolean> = {
+    isFeatured,
+    isListed,
+    showAbout,
+    showSupportOffered,
+    showBenefits,
+    showApplicationForm,
+  };
+
+  const setInitiativeToggle = (key: string, checked: boolean) => {
+    switch (key) {
+      case 'isFeatured': setIsFeatured(checked); break;
+      case 'isListed': setIsListed(checked); break;
+      case 'showAbout': setShowAbout(checked); break;
+      case 'showSupportOffered': setShowSupportOffered(checked); break;
+      case 'showBenefits': setShowBenefits(checked); break;
+      case 'showApplicationForm': setShowApplicationForm(checked); break;
+    }
+  };
+
+  const hiddenCount = countHidden(INITIATIVE_VISIBILITY_GROUPS, initiativeToggles);
+
   const footer = (
     <div className="flex justify-center gap-4">
       <Button variant="secondary" onClick={onClose} disabled={isPending}>
@@ -754,90 +833,16 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
         {/* Display Options */}
         <CollapsibleSection
           title="Display Options"
-          hint="Toggle visibility"
+          hint={hiddenCount > 0 ? `${hiddenCount} of ${INITIATIVE_VISIBILITY_GROUPS.flatMap((g) => g.items).length} sections hidden` : 'All sections visible'}
           isOpen={openSections.display}
           onToggle={() => toggleSection('display')}
         >
-          <div className="flex items-center justify-between rounded-[10px] border border-secondary/40 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold font-[family-name:var(--font-poppins)] text-text-primary">
-                Featured initiative
-              </p>
-              <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
-                Show this initiative as the highlighted card on the website.
-              </p>
-            </div>
-            <label className="relative inline-flex cursor-pointer items-center">
-              <input
-                type="checkbox"
-                checked={isFeatured}
-                onChange={(e) => setIsFeatured(e.target.checked)}
-                className="peer sr-only"
-              />
-              <span className="h-6 w-11 rounded-full bg-secondary/30 transition-colors peer-checked:bg-primary" />
-              <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
-            </label>
-          </div>
-
-          <div className="flex items-center justify-between rounded-[10px] border border-secondary/40 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold font-[family-name:var(--font-poppins)] text-text-primary">
-                Show on Initiatives listing
-              </p>
-              <p className="text-xs text-text-secondary font-[family-name:var(--font-poppins)]">
-                When off, this initiative only appears under its emirate.
-              </p>
-            </div>
-            <label className="relative inline-flex cursor-pointer items-center">
-              <input
-                type="checkbox"
-                checked={isListed}
-                onChange={(e) => setIsListed(e.target.checked)}
-                className="peer sr-only"
-              />
-              <span className="h-6 w-11 rounded-full bg-secondary/30 transition-colors peer-checked:bg-primary" />
-              <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showAbout}
-                onChange={(e) => setShowAbout(e.target.checked)}
-                className="h-4 w-4 accent-[#781E36]"
-              />
-              <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Show About</span>
-            </label>
-            <label className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showSupportOffered}
-                onChange={(e) => setShowSupportOffered(e.target.checked)}
-                className="h-4 w-4 accent-[#781E36]"
-              />
-              <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Show Support</span>
-            </label>
-            <label className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showBenefits}
-                onChange={(e) => setShowBenefits(e.target.checked)}
-                className="h-4 w-4 accent-[#781E36]"
-              />
-              <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Show Benefits</span>
-            </label>
-            <label className="flex items-center gap-3 rounded-[10px] border border-secondary/30 px-4 py-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showApplicationForm}
-                onChange={(e) => setShowApplicationForm(e.target.checked)}
-                className="h-4 w-4 accent-[#781E36]"
-              />
-              <span className="text-sm font-medium font-[family-name:var(--font-poppins)]">Show Application Form</span>
-            </label>
-          </div>
+          <VisibilityGroups
+            groups={INITIATIVE_VISIBILITY_GROUPS}
+            toggles={initiativeToggles}
+            onChange={setInitiativeToggle}
+            intro="Each group below controls one part of the public initiative page, in the order it appears. Hiding a section removes it for visitors — the initiative and its content are not affected."
+          />
         </CollapsibleSection>
       </div>
     </Modal>
