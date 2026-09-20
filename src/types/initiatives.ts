@@ -3,8 +3,8 @@ export interface Initiative {
   title: string;
   category: string;
   emirates: string;
-  startDate: string;
-  endDate: string;
+  startDate: string | null;
+  endDate: string | null;
   status: 'Published' | 'Draft' | 'Pending';
   isFeatured?: boolean;
   isListed?: boolean;
