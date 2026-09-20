@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
@@ -61,17 +62,6 @@ const initialSections: Record<InitiativeSectionKey, boolean> = {
   display: false,
 };
 
-function splitLines(value: string) {
-  return value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
-function joinLines(values?: string[]) {
-  return values?.join('\n') ?? '';
-}
-
 function parseSupportOffered(value?: Record<string, boolean>) {
   return {
     ...emptySupportOffered(),
@@ -94,6 +84,89 @@ function FileUpload({
         {label}
       </label>
       <ChunkedUploader value={value} category="image" label={label} onChange={onChange} helperText="Recommended 1280 × 720 px." />
+    </div>
+  );
+}
+
+interface ItemListEditorProps {
+  label: string;
+  itemsEn: string[];
+  itemsAr: string[];
+  onChange: (nextEn: string[], nextAr: string[]) => void;
+  enPlaceholder?: string;
+  arPlaceholder?: string;
+  addLabel?: string;
+}
+
+function ItemListEditor({
+  label,
+  itemsEn,
+  itemsAr,
+  onChange,
+  enPlaceholder,
+  arPlaceholder,
+  addLabel = 'Add item',
+}: ItemListEditorProps) {
+  const rowCount = Math.max(itemsEn.length, itemsAr.length);
+
+  const setAt = (index: number, patch: { en?: string; ar?: string }) => {
+    const nextEn = [...itemsEn];
+    const nextAr = [...itemsAr];
+    if (patch.en !== undefined) nextEn[index] = patch.en;
+    if (patch.ar !== undefined) nextAr[index] = patch.ar;
+    onChange(nextEn, nextAr);
+  };
+
+  const add = () => onChange([...itemsEn, ''], [...itemsAr, '']);
+
+  const remove = (index: number) =>
+    onChange(
+      itemsEn.filter((_, i) => i !== index),
+      itemsAr.filter((_, i) => i !== index),
+    );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <span className="text-[16px] font-semibold leading-[28.13px] font-[family-name:var(--font-poppins)]">
+        {label}
+      </span>
+      {Array.from({ length: rowCount }).map((_, i) => (
+        <div key={i} className="flex flex-col md:flex-row items-start gap-3">
+          <div className="flex flex-1 flex-col gap-3 md:flex-row">
+            <div className="flex-1">
+              <Input
+                label={`Item ${i + 1}`}
+                placeholder={enPlaceholder}
+                value={itemsEn[i] ?? ''}
+                onChange={(e) => setAt(i, { en: e.target.value })}
+              />
+            </div>
+            <div className="flex-1">
+              <ArabicField
+                label={`Item ${i + 1} (Arabic)`}
+                statusOnly
+                multiline
+                rows={2}
+                placeholder={arPlaceholder}
+                englishValue={itemsEn[i] ?? ''}
+                value={itemsAr[i] ?? ''}
+                onChange={(v) => setAt(i, { ar: v })}
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            className="mt-[26px] w-10 h-10 shrink-0 rounded-full bg-[#FDECEC] flex items-center justify-center hover:bg-[#FAD5D5] transition-colors cursor-pointer"
+            aria-label={`Remove ${label} item`}
+          >
+            <Trash2 size={16} className="text-danger" />
+          </button>
+        </div>
+      ))}
+      <Button variant="ghost" size="sm" onClick={add}>
+        <Plus size={16} /> {addLabel}
+      </Button>
     </div>
   );
 }
@@ -125,14 +198,14 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
   const [descriptionAr, setDescriptionAr] = useState('');
   const [purpose, setPurpose] = useState('');
   const [purposeAr, setPurposeAr] = useState('');
-  const [objectives, setObjectives] = useState('');
-  const [objectivesAr, setObjectivesAr] = useState('');
-  const [basicInformation, setBasicInformation] = useState('');
-  const [basicInformationAr, setBasicInformationAr] = useState('');
-  const [benefits, setBenefits] = useState('');
-  const [benefitsAr, setBenefitsAr] = useState('');
-  const [contact, setContact] = useState('');
-  const [contactAr, setContactAr] = useState('');
+  const [objectives, setObjectives] = useState<string[]>([]);
+  const [objectivesAr, setObjectivesAr] = useState<string[]>([]);
+  const [basicInformation, setBasicInformation] = useState<string[]>([]);
+  const [basicInformationAr, setBasicInformationAr] = useState<string[]>([]);
+  const [benefits, setBenefits] = useState<string[]>([]);
+  const [benefitsAr, setBenefitsAr] = useState<string[]>([]);
+  const [contact, setContact] = useState<string[]>([]);
+  const [contactAr, setContactAr] = useState<string[]>([]);
   const [supportOffered, setSupportOffered] = useState(emptySupportOffered());
   const [showAbout, setShowAbout] = useState(true);
   const [showSupportOffered, setShowSupportOffered] = useState(true);
@@ -169,14 +242,14 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       setDescriptionAr(initiative.descriptionAr || '');
       setPurpose(initiative.purpose || '');
       setPurposeAr(initiative.purposeAr || '');
-      setObjectives(joinLines(initiative.objectives));
-      setObjectivesAr(joinLines((initiative as any).objectivesAr));
-      setBasicInformation(joinLines(initiative.basicInformation));
-      setBasicInformationAr(joinLines((initiative as any).basicInformationAr));
-      setBenefits(joinLines(initiative.benefits));
-      setBenefitsAr(joinLines((initiative as any).benefitsAr));
-      setContact(joinLines(initiative.contact));
-      setContactAr(joinLines((initiative as any).contactAr));
+      setObjectives(initiative.objectives ?? []);
+      setObjectivesAr(initiative.objectivesAr ?? []);
+      setBasicInformation(initiative.basicInformation ?? []);
+      setBasicInformationAr(initiative.basicInformationAr ?? []);
+      setBenefits(initiative.benefits ?? []);
+      setBenefitsAr(initiative.benefitsAr ?? []);
+      setContact(initiative.contact ?? []);
+      setContactAr(initiative.contactAr ?? []);
       setSupportOffered(parseSupportOffered(initiative.supportOffered));
       setShowAbout(initiative.showAbout ?? true);
       setShowSupportOffered(initiative.showSupportOffered ?? true);
@@ -213,14 +286,14 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       setDescriptionAr('');
       setPurpose('');
       setPurposeAr('');
-      setObjectives('');
-      setObjectivesAr('');
-      setBasicInformation('');
-      setBasicInformationAr('');
-      setBenefits('');
-      setBenefitsAr('');
-      setContact('');
-      setContactAr('');
+      setObjectives([]);
+      setObjectivesAr([]);
+      setBasicInformation([]);
+      setBasicInformationAr([]);
+      setBenefits([]);
+      setBenefitsAr([]);
+      setContact([]);
+      setContactAr([]);
       setSupportOffered(emptySupportOffered());
       setShowAbout(true);
       setShowSupportOffered(true);
@@ -276,12 +349,14 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       descriptionAr: descriptionAr.trim(),
       purpose: purpose.trim(),
       purposeAr: purposeAr.trim(),
-      objectives: splitLines(objectives),
-      objectivesAr: splitLines(objectivesAr),
-      basicInformation: splitLines(basicInformation),
-      benefits: splitLines(benefits),
-      benefitsAr: splitLines(benefitsAr),
-      contact: splitLines(contact),
+      objectives,
+      objectivesAr,
+      basicInformation,
+      basicInformationAr,
+      benefits,
+      benefitsAr,
+      contact,
+      contactAr,
       supportOffered,
       showAbout,
       showSupportOffered,
@@ -317,8 +392,10 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
     setDescriptionAr(fresh.descriptionAr || '');
     setPurposeAr(fresh.purposeAr || '');
     setBadgeAr(fresh.badgeAr || '');
-    setObjectivesAr(joinLines((fresh as any).objectivesAr));
-    setBenefitsAr(joinLines((fresh as any).benefitsAr));
+    setObjectivesAr((fresh as any).objectivesAr ?? []);
+    setBenefitsAr((fresh as any).benefitsAr ?? []);
+    setBasicInformationAr((fresh as any).basicInformationAr ?? []);
+    setContactAr((fresh as any).contactAr ?? []);
     setMachineFlags({
       titleAr: getIsMachineFlag(fresh, 'titleAr'),
       subtitleAr: getIsMachineFlag(fresh, 'subtitleAr'),
@@ -345,8 +422,10 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
     getTranslationState(description, descriptionAr, machineFlags.descriptionAr, failedFields.has('descriptionAr')),
     getTranslationState(purpose, purposeAr, machineFlags.purposeAr, failedFields.has('purposeAr')),
     getTranslationState(badge, badgeAr, machineFlags.badgeAr, failedFields.has('badgeAr')),
-    getTranslationState(objectives, objectivesAr, machineFlags.objectivesAr, failedFields.has('objectivesAr')),
-    getTranslationState(benefits, benefitsAr, machineFlags.benefitsAr, failedFields.has('benefitsAr')),
+    getTranslationState(objectives.join('\n'), objectivesAr.join('\n'), machineFlags.objectivesAr, failedFields.has('objectivesAr')),
+    getTranslationState(basicInformation.join('\n'), basicInformationAr.join('\n'), undefined, false),
+    getTranslationState(benefits.join('\n'), benefitsAr.join('\n'), machineFlags.benefitsAr, failedFields.has('benefitsAr')),
+    getTranslationState(contact.join('\n'), contactAr.join('\n'), undefined, false),
   ];
 
   const footer = (
@@ -587,51 +666,31 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
             />
           </div>
 
-          <div className="flex gap-8">
-            <div className="flex-1">
-              <Textarea
-                label="Objectives"
-                placeholder="One objective per line"
-                rows={4}
-                value={objectives}
-                onChange={(e) => setObjectives(e.target.value)}
-              />
-            </div>
-            <div className="flex-1">
-              <ArabicField
-                label="Objectives (Arabic)"
-                placeholder="هدف واحد في كل سطر"
-                multiline
-                rows={4}
-                englishValue={objectives}
-                value={objectivesAr}
-                onChange={setObjectivesAr}
-                isMachine={machineFlags.objectivesAr}
-                failed={failedFields.has('objectivesAr')}
-              />
-            </div>
-          </div>
+          <ItemListEditor
+            label="Objectives"
+            itemsEn={objectives}
+            itemsAr={objectivesAr}
+            onChange={(en, ar) => {
+              setObjectives(en);
+              setObjectivesAr(ar);
+            }}
+            enPlaceholder="Enter an objective"
+            arPlaceholder="أدخل الهدف"
+            addLabel="Add objective"
+          />
 
-          <div className="flex gap-8">
-            <div className="flex-1">
-              <Textarea
-                label="Basic Information"
-                placeholder="One item per line"
-                rows={4}
-                value={basicInformation}
-                onChange={(e) => setBasicInformation(e.target.value)}
-              />
-            </div>
-            <div className="flex-1">
-              <Textarea
-                label="Basic Information (Arabic)"
-                placeholder="معلومة واحدة في كل سطر"
-                rows={4}
-                value={basicInformationAr}
-                onChange={(e) => setBasicInformationAr(e.target.value)}
-              />
-            </div>
-          </div>
+          <ItemListEditor
+            label="Basic Information"
+            itemsEn={basicInformation}
+            itemsAr={basicInformationAr}
+            onChange={(en, ar) => {
+              setBasicInformation(en);
+              setBasicInformationAr(ar);
+            }}
+            enPlaceholder="e.g. Organizer: Dubai Community Development Authority"
+            arPlaceholder="مثال: المنظم: هيئة تنمية المجتمع بدبي"
+            addLabel="Add item"
+          />
         </CollapsibleSection>
 
         {/* Benefits & Support */}
@@ -665,51 +724,31 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
             </div>
           </div>
 
-          <div className="flex gap-8">
-            <div className="flex-1">
-              <Textarea
-                label="Benefits"
-                placeholder="One benefit per line"
-                rows={4}
-                value={benefits}
-                onChange={(e) => setBenefits(e.target.value)}
-              />
-            </div>
-            <div className="flex-1">
-              <ArabicField
-                label="Benefits (Arabic)"
-                placeholder="فائدة واحدة في كل سطر"
-                multiline
-                rows={4}
-                englishValue={benefits}
-                value={benefitsAr}
-                onChange={setBenefitsAr}
-                isMachine={machineFlags.benefitsAr}
-                failed={failedFields.has('benefitsAr')}
-              />
-            </div>
-          </div>
+          <ItemListEditor
+            label="Benefits"
+            itemsEn={benefits}
+            itemsAr={benefitsAr}
+            onChange={(en, ar) => {
+              setBenefits(en);
+              setBenefitsAr(ar);
+            }}
+            enPlaceholder="Enter a benefit"
+            arPlaceholder="أدخل الفائدة"
+            addLabel="Add benefit"
+          />
 
-          <div className="flex gap-8">
-            <div className="flex-1">
-              <Textarea
-                label="Contact"
-                placeholder="One contact item per line"
-                rows={4}
-                value={contact}
-                onChange={(e) => setContact(e.target.value)}
-              />
-            </div>
-            <div className="flex-1">
-              <Textarea
-                label="Contact (Arabic)"
-                placeholder="جهة اتصال واحدة في كل سطر"
-                rows={4}
-                value={contactAr}
-                onChange={(e) => setContactAr(e.target.value)}
-              />
-            </div>
-          </div>
+          <ItemListEditor
+            label="Contact"
+            itemsEn={contact}
+            itemsAr={contactAr}
+            onChange={(en, ar) => {
+              setContact(en);
+              setContactAr(ar);
+            }}
+            enPlaceholder="e.g. Phone: +971 4 123 4567"
+            arPlaceholder="مثال: الهاتف: ٤٥٦٧ ١٢٣ ٤ ٩٧١+"
+            addLabel="Add contact item"
+          />
         </CollapsibleSection>
 
         {/* Display Options */}

@@ -626,7 +626,6 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
   const vis = (section: keyof ShortsSectionVisibility): boolean =>
     data?.sectionVisibility?.[section] ?? true;
 
-  const setTopics       = (topics: PresentationTopic[]) => setField({ topics });
   const setContributors = (contributors: string[])       => setField({ contributors });
   const setFaqs         = (faqs: PresentationFaq[])      => setField({ faqs });
 
@@ -880,71 +879,6 @@ export default function PageContentEditor({ presentationKey }: PageContentEditor
       {/* ── Shorts-only sections ───────────────────────────────────────────── */}
       {presentationKey === 'shorts' && (
         <>
-          {/* Explore Topics */}
-          <CollapsibleSection
-            id="topics" title="Explore Topics"
-            hint="Cards shown on the Shorts page"
-            sectionName="Explore Topics"
-            hidePreview="the Explore Topics cards on the public Shorts page"
-            visible={vis('topics')}
-            onToggleVisible={() => setVis('topics', !vis('topics'))}
-            collapsed={!!collapsed['topics']}
-            onToggleCollapsed={() => toggleCollapse('topics')}
-          >
-            {(data.topics ?? []).map((topic, i) => (
-              <div key={i} className="flex flex-col md:flex-row items-end gap-2">
-                <div className="flex-1 md:flex md:gap-2">
-                  <div className="flex-1">
-                    <Input
-                      label={`Topic ${i + 1} — Title`}
-                      value={topic.title}
-                      onChange={(e) => {
-                        const next = [...data.topics];
-                        next[i] = { ...topic, title: e.target.value };
-                        setTopics(next);
-                      }}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <ArabicField
-                      label={`Topic ${i + 1} — Title (Arabic)`}
-                      statusOnly
-                      englishValue={topic.title}
-                      value={topic.titleAr ?? ''}
-                      onChange={(v) => {
-                        const next = [...data.topics];
-                        next[i] = { ...topic, titleAr: v };
-                        setTopics(next);
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="w-full md:w-[160px]">
-                  <Input
-                    label="Videos Count"
-                    value={topic.videos ?? ''}
-                    onChange={(e) => {
-                      const next = [...data.topics];
-                      next[i] = { ...topic, videos: e.target.value };
-                      setTopics(next);
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setTopics(data.topics.filter((_, idx) => idx !== i))}
-                  className="mb-[2px] w-10 h-10 shrink-0 rounded-full bg-[#FDECEC] flex items-center justify-center hover:bg-[#FAD5D5] transition-colors cursor-pointer"
-                  aria-label="Remove topic"
-                >
-                  <Trash2 size={16} className="text-danger" />
-                </button>
-              </div>
-            ))}
-            <Button variant="ghost" size="sm" onClick={() => setTopics([...(data.topics ?? []), { title: '', videos: '' }])}>
-              <Plus size={16} /> Add topic
-            </Button>
-          </CollapsibleSection>
-
           {/* Trusted Contributors */}
           <CollapsibleSection
             id="contributors" title="Trusted Contributors"

@@ -19,6 +19,7 @@ export interface Initiative {
   objectives?: string[];
   objectivesAr?: string[];
   basicInformation?: string[];
+  basicInformationAr?: string[];
   supportOffered?: Record<string, boolean>;
   benefits?: string[];
   benefitsAr?: string[];
@@ -26,6 +27,7 @@ export interface Initiative {
   badge?: string;
   badgeAr?: string;
   contact?: string[];
+  contactAr?: string[];
   officialWebsiteUrl?: string;
   shareUrl?: string;
   showAbout?: boolean;
