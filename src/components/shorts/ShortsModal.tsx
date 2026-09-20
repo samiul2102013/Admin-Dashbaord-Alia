@@ -8,7 +8,6 @@ import {
   LayoutGrid,
   Link2,
   Plus,
-  Share2,
   Tag,
   Trash2,
 } from 'lucide-react';
@@ -87,7 +86,6 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
   const [toggles, setToggles] = useState<Record<string, boolean>>({
     showKeyTopics: true,
     showResources: true,
-    showShare: true,
     showSpeaker: true,
     showViews: true,
     showRelated: true,
@@ -128,7 +126,6 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
       setToggles({
         showKeyTopics: short.showKeyTopics ?? true,
         showResources: short.showResources ?? true,
-        showShare: short.showShare ?? true,
         showSpeaker: short.showSpeaker ?? true,
         showViews: short.showViews ?? true,
         showRelated: short.showRelated ?? true,
@@ -158,7 +155,6 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
       setToggles({
         showKeyTopics: true,
         showResources: true,
-        showShare: true,
         showSpeaker: true,
         showViews: true,
         showRelated: true,
@@ -532,14 +528,6 @@ const VISIBILITY_GROUPS: VisibilityGroup[] = [
     icon: Link2,
     items: [
       { key: 'showResources', label: 'Resources List', description: 'Shows the "Resources & References" card with its external links.' },
-    ],
-  },
-  {
-    title: 'Share',
-    description: 'the social sharing card',
-    icon: Share2,
-    items: [
-      { key: 'showShare', label: 'Share Buttons', description: 'Shows the Facebook / X / Copy Link sharing card.' },
     ],
   },
   {
