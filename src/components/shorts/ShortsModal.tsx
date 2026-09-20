@@ -1,7 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Info,
+  LayoutGrid,
+  Link2,
+  Plus,
+  Share2,
+  Tag,
+  Trash2,
+  type LucideIcon,
+} from 'lucide-react';
 import Modal from '@/components/shared/Modal';
 import Input from '@/components/shared/Input';
 import Textarea from '@/components/shared/Textarea';
@@ -233,6 +244,7 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
 
   const topicsCount = keyTopics.map((t) => t.trim()).filter(Boolean).length;
   const resourcesCount = resources.filter((r) => r.title || r.url || r.type).length;
+  const hiddenCount = TOGGLE_KEYS.filter((k) => !toggles[k]).length;
 
   const footer = (
     <div className="flex justify-center gap-4">
@@ -473,23 +485,57 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
 
         <Section
           title="Display Options"
+          hint={hiddenCount > 0 ? `${hiddenCount} of ${TOGGLE_KEYS.length} sections hidden` : 'All sections visible'}
           isOpen={openSections.display}
           onToggle={() => toggleSection('display')}
         >
-          <div className="grid grid-cols-2 gap-4">
-            {TOGGLE_KEYS.map((key) => (
-              <label key={key} className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(toggles[key])}
-                  onChange={(e) => setToggles({ ...toggles, [key]: e.target.checked })}
-                  className="w-4 h-4 accent-[#781E36]"
-                />
-                <span className="text-sm font-medium text-text-primary font-[family-name:var(--font-poppins)]">
-                  {TOGGLE_LABELS[key]}
-                </span>
-              </label>
-            ))}
+          <p className="text-xs leading-5 text-text-secondary font-[family-name:var(--font-poppins)]">
+            Each group below controls one section of the public video page, listed in the order it
+            appears on the page. Hiding a section removes it for visitors — the video and its
+            content are not affected.
+          </p>
+
+          <div className="flex flex-col gap-4">
+            {VISIBILITY_GROUPS.map((group) => {
+              const groupHidden = group.items.filter((item) => !toggles[item.key]).length;
+              const GroupIcon = group.icon;
+              return (
+                <div
+                  key={group.title}
+                  className="rounded-[12px] border border-secondary/20 bg-white overflow-hidden"
+                >
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-background-soft/40 border-b border-secondary/10">
+                    <GroupIcon size={14} className="shrink-0 text-primary" />
+                    <span className="text-xs font-bold uppercase tracking-wide text-text-primary font-[family-name:var(--font-poppins)]">
+                      {group.title}
+                    </span>
+                    <span className="text-xs text-text-secondary font-[family-name:var(--font-poppins)] hidden sm:inline truncate">
+                      — {group.description}
+                    </span>
+                    <span
+                      className={`ml-auto text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 font-[family-name:var(--font-poppins)] ${
+                        groupHidden === 0
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-secondary/10 text-text-secondary'
+                      }`}
+                    >
+                      {groupHidden === 0 ? 'All visible' : `${groupHidden} hidden`}
+                    </span>
+                  </div>
+                  <div className="divide-y divide-secondary/10">
+                    {group.items.map((item) => (
+                      <VisibilityToggle
+                        key={item.key}
+                        label={item.label}
+                        description={item.description}
+                        checked={Boolean(toggles[item.key])}
+                        onChange={(checked) => setToggles({ ...toggles, [item.key]: checked })}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Section>
       </div>
@@ -498,29 +544,128 @@ export default function ShortsModal({ isOpen, onClose, short }: ShortsModalProps
   );
 }
 
-const TOGGLE_KEYS = [
-  'showKeyTopics',
-  'showResources',
-  'showShare',
-  'showSpeaker',
-  'showViews',
-  'showRelated',
-] as const;
+type ToggleKey =
+  | 'showKeyTopics'
+  | 'showResources'
+  | 'showShare'
+  | 'showSpeaker'
+  | 'showViews'
+  | 'showRelated';
 
-const TOGGLE_LABELS: Record<(typeof TOGGLE_KEYS)[number], string> = {
-  showKeyTopics: 'Show Key Topics',
-  showResources: 'Show Resources',
-  showShare: 'Show Share',
-  showSpeaker: 'Show Speaker',
-  showViews: 'Show Views',
-  showRelated: 'Show Related',
-};
+interface VisibilityItem {
+  key: ToggleKey;
+  label: string;
+  description: string;
+}
+
+interface VisibilityGroup {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  items: VisibilityItem[];
+}
+
+// Groups mirror the layout of the public video page (Shorts → video detail),
+// top to bottom, so admins can map each switch to what they saw as a visitor.
+const VISIBILITY_GROUPS: VisibilityGroup[] = [
+  {
+    title: 'Video Info Bar',
+    description: 'the row of facts under the video player',
+    icon: Info,
+    items: [
+      { key: 'showViews', label: 'View Count', description: 'Shows the total number of views next to the video.' },
+      { key: 'showSpeaker', label: 'Speaker Name', description: 'Shows the speaker name in the info bar (set in Video Details).' },
+    ],
+  },
+  {
+    title: 'About & Key Topics',
+    description: 'the description block below the video',
+    icon: Tag,
+    items: [
+      { key: 'showKeyTopics', label: 'Key Topics', description: 'Shows the topic chips from "Key Topics Covered" under the description.' },
+    ],
+  },
+  {
+    title: 'Resources & References',
+    description: 'the links card on the video page',
+    icon: Link2,
+    items: [
+      { key: 'showResources', label: 'Resources List', description: 'Shows the "Resources & References" card with its external links.' },
+    ],
+  },
+  {
+    title: 'Share',
+    description: 'the social sharing card',
+    icon: Share2,
+    items: [
+      { key: 'showShare', label: 'Share Buttons', description: 'Shows the Facebook / X / Copy Link sharing card.' },
+    ],
+  },
+  {
+    title: 'Related Videos',
+    description: 'the grid of other shorts',
+    icon: LayoutGrid,
+    items: [
+      { key: 'showRelated', label: 'Related Shorts', description: 'Shows the related shorts grid at the bottom of the page.' },
+    ],
+  },
+];
+
+// Derived so the save payload always covers every toggle exactly once.
+const TOGGLE_KEYS: ToggleKey[] = VISIBILITY_GROUPS.flatMap((group) =>
+  group.items.map((item) => item.key),
+);
 
 function updateResource(index: number, field: keyof ShortResource, value: string) {
   return (prev: ShortResource[]) => {
     const next = prev.map((r, i) => (i === index ? { ...r, [field]: value } : r));
     return next;
   };
+}
+
+/* ── Visibility row: label + description on the left, switch on the right ── */
+
+function VisibilityToggle({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-secondary/5 transition-colors">
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-semibold text-text-primary font-[family-name:var(--font-poppins)]">
+          {label}
+        </span>
+        <span className="block text-xs leading-4 text-text-secondary font-[family-name:var(--font-poppins)]">
+          {description}
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        className="sr-only"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span
+        aria-hidden="true"
+        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${
+          checked ? 'bg-primary' : 'bg-secondary/30'
+        }`}
+      >
+        <span
+          className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+            checked ? 'translate-x-5' : 'translate-x-0'
+          }`}
+        />
+      </span>
+    </label>
+  );
 }
 
 /* ── Collapsible section wrapper (same pattern as ContactModal/PageContentEditor) ── */
