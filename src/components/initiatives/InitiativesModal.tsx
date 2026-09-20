@@ -56,8 +56,8 @@ type InitiativeSectionKey = 'classification' | 'media' | 'about' | 'benefits' | 
 const initialSections: Record<InitiativeSectionKey, boolean> = {
   classification: false,
   media: false,
-  about: false,
-  benefits: false,
+  about: true,
+  benefits: true,
   display: false,
 };
 
@@ -126,9 +126,13 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
   const [purpose, setPurpose] = useState('');
   const [purposeAr, setPurposeAr] = useState('');
   const [objectives, setObjectives] = useState('');
+  const [objectivesAr, setObjectivesAr] = useState('');
   const [basicInformation, setBasicInformation] = useState('');
+  const [basicInformationAr, setBasicInformationAr] = useState('');
   const [benefits, setBenefits] = useState('');
+  const [benefitsAr, setBenefitsAr] = useState('');
   const [contact, setContact] = useState('');
+  const [contactAr, setContactAr] = useState('');
   const [supportOffered, setSupportOffered] = useState(emptySupportOffered());
   const [showAbout, setShowAbout] = useState(true);
   const [showSupportOffered, setShowSupportOffered] = useState(true);
@@ -166,9 +170,13 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       setPurpose(initiative.purpose || '');
       setPurposeAr(initiative.purposeAr || '');
       setObjectives(joinLines(initiative.objectives));
+      setObjectivesAr(joinLines((initiative as any).objectivesAr));
       setBasicInformation(joinLines(initiative.basicInformation));
+      setBasicInformationAr(joinLines((initiative as any).basicInformationAr));
       setBenefits(joinLines(initiative.benefits));
+      setBenefitsAr(joinLines((initiative as any).benefitsAr));
       setContact(joinLines(initiative.contact));
+      setContactAr(joinLines((initiative as any).contactAr));
       setSupportOffered(parseSupportOffered(initiative.supportOffered));
       setShowAbout(initiative.showAbout ?? true);
       setShowSupportOffered(initiative.showSupportOffered ?? true);
@@ -183,6 +191,8 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
         descriptionAr: getIsMachineFlag(initiative, 'descriptionAr'),
         purposeAr: getIsMachineFlag(initiative, 'purposeAr'),
         badgeAr: getIsMachineFlag(initiative, 'badgeAr'),
+        objectivesAr: getIsMachineFlag(initiative, 'objectivesAr'),
+        benefitsAr: getIsMachineFlag(initiative, 'benefitsAr'),
       });
       setFailedFields(new Set());
     } else {
@@ -204,9 +214,13 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       setPurpose('');
       setPurposeAr('');
       setObjectives('');
+      setObjectivesAr('');
       setBasicInformation('');
+      setBasicInformationAr('');
       setBenefits('');
+      setBenefitsAr('');
       setContact('');
+      setContactAr('');
       setSupportOffered(emptySupportOffered());
       setShowAbout(true);
       setShowSupportOffered(true);
@@ -263,8 +277,10 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       purpose: purpose.trim(),
       purposeAr: purposeAr.trim(),
       objectives: splitLines(objectives),
+      objectivesAr: splitLines(objectivesAr),
       basicInformation: splitLines(basicInformation),
       benefits: splitLines(benefits),
+      benefitsAr: splitLines(benefitsAr),
       contact: splitLines(contact),
       supportOffered,
       showAbout,
@@ -301,12 +317,16 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
     setDescriptionAr(fresh.descriptionAr || '');
     setPurposeAr(fresh.purposeAr || '');
     setBadgeAr(fresh.badgeAr || '');
+    setObjectivesAr(joinLines((fresh as any).objectivesAr));
+    setBenefitsAr(joinLines((fresh as any).benefitsAr));
     setMachineFlags({
       titleAr: getIsMachineFlag(fresh, 'titleAr'),
       subtitleAr: getIsMachineFlag(fresh, 'subtitleAr'),
       descriptionAr: getIsMachineFlag(fresh, 'descriptionAr'),
       purposeAr: getIsMachineFlag(fresh, 'purposeAr'),
       badgeAr: getIsMachineFlag(fresh, 'badgeAr'),
+      objectivesAr: getIsMachineFlag(fresh, 'objectivesAr'),
+      benefitsAr: getIsMachineFlag(fresh, 'benefitsAr'),
     });
     const failed = new Set<string>();
     if ((fresh.title || '').trim() && !(fresh.titleAr || '').trim()) failed.add('titleAr');
@@ -314,6 +334,8 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
     if ((fresh.description || '').trim() && !(fresh.descriptionAr || '').trim()) failed.add('descriptionAr');
     if ((fresh.purpose || '').trim() && !(fresh.purposeAr || '').trim()) failed.add('purposeAr');
     if ((fresh.badge || '').trim() && !(fresh.badgeAr || '').trim()) failed.add('badgeAr');
+    if ((fresh.objectives || []).length && !((fresh as any).objectivesAr || []).length) failed.add('objectivesAr');
+    if ((fresh.benefits || []).length && !((fresh as any).benefitsAr || []).length) failed.add('benefitsAr');
     setFailedFields(failed);
   }, [initiative]);
 
@@ -323,6 +345,8 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
     getTranslationState(description, descriptionAr, machineFlags.descriptionAr, failedFields.has('descriptionAr')),
     getTranslationState(purpose, purposeAr, machineFlags.purposeAr, failedFields.has('purposeAr')),
     getTranslationState(badge, badgeAr, machineFlags.badgeAr, failedFields.has('badgeAr')),
+    getTranslationState(objectives, objectivesAr, machineFlags.objectivesAr, failedFields.has('objectivesAr')),
+    getTranslationState(benefits, benefitsAr, machineFlags.benefitsAr, failedFields.has('benefitsAr')),
   ];
 
   const footer = (
@@ -563,24 +587,50 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
             />
           </div>
 
-          <div>
-            <Textarea
-              label="Objectives"
-              placeholder="One objective per line"
-              rows={4}
-              value={objectives}
-              onChange={(e) => setObjectives(e.target.value)}
-            />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Textarea
+                label="Objectives"
+                placeholder="One objective per line"
+                rows={4}
+                value={objectives}
+                onChange={(e) => setObjectives(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <ArabicField
+                label="Objectives (Arabic)"
+                placeholder="هدف واحد في كل سطر"
+                multiline
+                rows={4}
+                englishValue={objectives}
+                value={objectivesAr}
+                onChange={setObjectivesAr}
+                isMachine={machineFlags.objectivesAr}
+                failed={failedFields.has('objectivesAr')}
+              />
+            </div>
           </div>
 
-          <div>
-            <Textarea
-              label="Basic Information"
-              placeholder="One item per line"
-              rows={4}
-              value={basicInformation}
-              onChange={(e) => setBasicInformation(e.target.value)}
-            />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Textarea
+                label="Basic Information"
+                placeholder="One item per line"
+                rows={4}
+                value={basicInformation}
+                onChange={(e) => setBasicInformation(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <Textarea
+                label="Basic Information (Arabic)"
+                placeholder="معلومة واحدة في كل سطر"
+                rows={4}
+                value={basicInformationAr}
+                onChange={(e) => setBasicInformationAr(e.target.value)}
+              />
+            </div>
           </div>
         </CollapsibleSection>
 
@@ -615,24 +665,50 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
             </div>
           </div>
 
-          <div>
-            <Textarea
-              label="Benefits"
-              placeholder="One benefit per line"
-              rows={4}
-              value={benefits}
-              onChange={(e) => setBenefits(e.target.value)}
-            />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Textarea
+                label="Benefits"
+                placeholder="One benefit per line"
+                rows={4}
+                value={benefits}
+                onChange={(e) => setBenefits(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <ArabicField
+                label="Benefits (Arabic)"
+                placeholder="فائدة واحدة في كل سطر"
+                multiline
+                rows={4}
+                englishValue={benefits}
+                value={benefitsAr}
+                onChange={setBenefitsAr}
+                isMachine={machineFlags.benefitsAr}
+                failed={failedFields.has('benefitsAr')}
+              />
+            </div>
           </div>
 
-          <div>
-            <Textarea
-              label="Contact"
-              placeholder="One contact item per line"
-              rows={4}
-              value={contact}
-              onChange={(e) => setContact(e.target.value)}
-            />
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Textarea
+                label="Contact"
+                placeholder="One contact item per line"
+                rows={4}
+                value={contact}
+                onChange={(e) => setContact(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <Textarea
+                label="Contact (Arabic)"
+                placeholder="جهة اتصال واحدة في كل سطر"
+                rows={4}
+                value={contactAr}
+                onChange={(e) => setContactAr(e.target.value)}
+              />
+            </div>
           </div>
         </CollapsibleSection>
 
