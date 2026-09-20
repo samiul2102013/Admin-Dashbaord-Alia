@@ -29,6 +29,8 @@ export interface Initiative {
   contact?: string[];
   contactAr?: string[];
   officialWebsiteUrl?: string;
+  websiteButtonLabel?: string;
+  websiteButtonLabelAr?: string;
   shareUrl?: string;
   showAbout?: boolean;
   showSupportOffered?: boolean;

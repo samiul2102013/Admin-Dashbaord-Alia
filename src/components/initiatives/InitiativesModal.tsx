@@ -250,7 +250,8 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
   const [badge, setBadge] = useState('');
   const [badgeAr, setBadgeAr] = useState('');
   const [officialWebsiteUrl, setOfficialWebsiteUrl] = useState('');
-  const [shareUrl, setShareUrl] = useState('');
+  const [websiteButtonLabel, setWebsiteButtonLabel] = useState('');
+  const [websiteButtonLabelAr, setWebsiteButtonLabelAr] = useState('');
   const [description, setDescription] = useState('');
   const [descriptionAr, setDescriptionAr] = useState('');
   const [purpose, setPurpose] = useState('');
@@ -294,7 +295,8 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       setBadge(initiative.badge || '');
       setBadgeAr(initiative.badgeAr || '');
       setOfficialWebsiteUrl(initiative.officialWebsiteUrl || '');
-      setShareUrl(initiative.shareUrl || '');
+      setWebsiteButtonLabel(initiative.websiteButtonLabel || '');
+      setWebsiteButtonLabelAr(initiative.websiteButtonLabelAr || '');
       setDescription(initiative.description || '');
       setDescriptionAr(initiative.descriptionAr || '');
       setPurpose(initiative.purpose || '');
@@ -321,6 +323,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
         descriptionAr: getIsMachineFlag(initiative, 'descriptionAr'),
         purposeAr: getIsMachineFlag(initiative, 'purposeAr'),
         badgeAr: getIsMachineFlag(initiative, 'badgeAr'),
+        websiteButtonLabelAr: getIsMachineFlag(initiative, 'websiteButtonLabelAr'),
         objectivesAr: getIsMachineFlag(initiative, 'objectivesAr'),
         benefitsAr: getIsMachineFlag(initiative, 'benefitsAr'),
       });
@@ -338,7 +341,8 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       setBadge('');
       setBadgeAr('');
       setOfficialWebsiteUrl('');
-      setShareUrl('');
+      setWebsiteButtonLabel('');
+      setWebsiteButtonLabelAr('');
       setDescription('');
       setDescriptionAr('');
       setPurpose('');
@@ -401,7 +405,8 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       badge: badge.trim(),
       badgeAr: badgeAr.trim(),
       officialWebsiteUrl: officialWebsiteUrl.trim(),
-      shareUrl: shareUrl.trim(),
+      websiteButtonLabel: websiteButtonLabel.trim(),
+      websiteButtonLabelAr: websiteButtonLabelAr.trim(),
       description: description.trim(),
       descriptionAr: descriptionAr.trim(),
       purpose: purpose.trim(),
@@ -449,6 +454,8 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
     setDescriptionAr(fresh.descriptionAr || '');
     setPurposeAr(fresh.purposeAr || '');
     setBadgeAr(fresh.badgeAr || '');
+    setWebsiteButtonLabel(fresh.websiteButtonLabel || '');
+    setWebsiteButtonLabelAr(fresh.websiteButtonLabelAr || '');
     setObjectivesAr((fresh as any).objectivesAr ?? []);
     setBenefitsAr((fresh as any).benefitsAr ?? []);
     setBasicInformationAr((fresh as any).basicInformationAr ?? []);
@@ -459,6 +466,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
       descriptionAr: getIsMachineFlag(fresh, 'descriptionAr'),
       purposeAr: getIsMachineFlag(fresh, 'purposeAr'),
       badgeAr: getIsMachineFlag(fresh, 'badgeAr'),
+      websiteButtonLabelAr: getIsMachineFlag(fresh, 'websiteButtonLabelAr'),
       objectivesAr: getIsMachineFlag(fresh, 'objectivesAr'),
       benefitsAr: getIsMachineFlag(fresh, 'benefitsAr'),
     });
@@ -468,6 +476,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
     if ((fresh.description || '').trim() && !(fresh.descriptionAr || '').trim()) failed.add('descriptionAr');
     if ((fresh.purpose || '').trim() && !(fresh.purposeAr || '').trim()) failed.add('purposeAr');
     if ((fresh.badge || '').trim() && !(fresh.badgeAr || '').trim()) failed.add('badgeAr');
+    if ((fresh.websiteButtonLabel || '').trim() && !(fresh.websiteButtonLabelAr || '').trim()) failed.add('websiteButtonLabelAr');
     if ((fresh.objectives || []).length && !((fresh as any).objectivesAr || []).length) failed.add('objectivesAr');
     if ((fresh.benefits || []).length && !((fresh as any).benefitsAr || []).length) failed.add('benefitsAr');
     setFailedFields(failed);
@@ -479,6 +488,7 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
     getTranslationState(description, descriptionAr, machineFlags.descriptionAr, failedFields.has('descriptionAr')),
     getTranslationState(purpose, purposeAr, machineFlags.purposeAr, failedFields.has('purposeAr')),
     getTranslationState(badge, badgeAr, machineFlags.badgeAr, failedFields.has('badgeAr')),
+    getTranslationState(websiteButtonLabel, websiteButtonLabelAr, machineFlags.websiteButtonLabelAr, failedFields.has('websiteButtonLabelAr')),
     getTranslationState(objectives.join('\n'), objectivesAr.join('\n'), machineFlags.objectivesAr, failedFields.has('objectivesAr')),
     getTranslationState(basicInformation.join('\n'), basicInformationAr.join('\n'), undefined, false),
     getTranslationState(benefits.join('\n'), benefitsAr.join('\n'), machineFlags.benefitsAr, failedFields.has('benefitsAr')),
@@ -610,7 +620,6 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
             <div className="flex-1">
               <Input
                 label="Start Date"
-                required
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
@@ -619,7 +628,6 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
             <div className="flex-1">
               <Input
                 label="End Date"
-                required
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -680,10 +688,19 @@ export default function InitiativesModal({ isOpen, onClose, initiative }: Initia
                 onChange={(e) => setOfficialWebsiteUrl(e.target.value)}
               />
               <Input
-                label="Share URL"
-                placeholder="https://..."
-                value={shareUrl}
-                onChange={(e) => setShareUrl(e.target.value)}
+                label="Website Button Label"
+                placeholder="e.g. Visit our website"
+                value={websiteButtonLabel}
+                onChange={(e) => setWebsiteButtonLabel(e.target.value)}
+              />
+              <ArabicField
+                label="Website Button Label (Arabic)"
+                placeholder="مثال: قم بزيارة موقعنا"
+                englishValue={websiteButtonLabel}
+                value={websiteButtonLabelAr}
+                onChange={setWebsiteButtonLabelAr}
+                isMachine={machineFlags.websiteButtonLabelAr}
+                failed={failedFields.has('websiteButtonLabelAr')}
               />
             </div>
           </div>
