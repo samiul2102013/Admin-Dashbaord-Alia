@@ -116,6 +116,7 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
   const [centerCountAr, setCenterCountAr] = useState('');
   const [image, setImage] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
+  const [browseInitiativesUrl, setBrowseInitiativesUrl] = useState('');
   const [showStatus, setShowStatus] = useState(true);
   const [status, setStatus] = useState('Draft');
   const [machineFlags, setMachineFlags] = useState<Record<string, boolean>>({});
@@ -140,6 +141,7 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
       setCenterCountAr(emirates.centerCountAr || '');
       setImage(emirates.image || '');
       setWebsiteUrl(emirates.websiteUrl || '');
+      setBrowseInitiativesUrl(emirates.browseInitiativesUrl || '');
       setShowStatus(emirates.showStatus ?? true);
       setStatus(emirates.status || 'Draft');
       setMachineFlags({
@@ -163,6 +165,7 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
       setCenterCountAr('');
       setImage('');
       setWebsiteUrl('');
+      setBrowseInitiativesUrl('');
       setShowStatus(true);
       setStatus('Draft');
       setMachineFlags({});
@@ -212,6 +215,7 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
       centerCountAr: centerCountAr.trim(),
       image,
       websiteUrl: websiteUrl.trim(),
+      browseInitiativesUrl: browseInitiativesUrl.trim(),
       showStatus,
       status: status as Emirates['status'],
     };
@@ -414,6 +418,18 @@ export default function EmiratesModal({ isOpen, onClose, emirates }: EmiratesMod
                 onChange={(e) => setWebsiteUrl(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="flex gap-8">
+            <div className="flex-1">
+              <Input
+                label="Browse Initiatives Button URL"
+                placeholder="/initiatives (empty = default)"
+                value={browseInitiativesUrl}
+                onChange={(e) => setBrowseInitiativesUrl(e.target.value)}
+              />
+            </div>
+            <div className="flex-1" />
           </div>
 
           <div className="flex gap-8">

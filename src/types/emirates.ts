@@ -15,5 +15,6 @@ export interface Emirates {
   centerCount?: string;
   image?: string;
   websiteUrl?: string;
+  browseInitiativesUrl?: string;
   showStatus?: boolean;
 }
